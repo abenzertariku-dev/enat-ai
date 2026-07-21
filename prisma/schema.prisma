@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model User {
+  id            String         @id @default(cuid())
+  email         String         @unique
+  password      String
+  name          String
+  businessName  String?
+  phone         String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  customers     Customer[]
+  transactions  Transaction[]
+}
+
+model Customer {
+  id            String         @id @default(cuid())
+  name          String
+  phone         String?
+  email         String?
+  businessName  String?
+  totalDebt     Float          @default(0)
+  totalPaid     Float          @default(0)
+  userId        String
+  user          User           @relation(fields: [userId], references: [id])
+  transactions  Transaction[]
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+model Transaction {
+  id            String         @id @default(cuid())
+  customerId    String
+  customer      Customer       @relation(fields: [customerId], references: [id])
+  userId        String
+  user          User           @relation(fields: [userId], references: [id])
+  product       String
+  quantity      Float?         @default(1)
+  amount        Float
+  type          TransactionType
+  status        TransactionStatus
+  description   String?
+  date          DateTime       @default(now())
+  paymentDate   DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+}
+
+enum TransactionType {
+  credit
+  debit
+}
+
+enum TransactionStatus {
+  paid
+  unpaid
+  partial
+}
