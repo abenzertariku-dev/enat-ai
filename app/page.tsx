@@ -35,6 +35,7 @@ export default function Home() {
   const [user, setUser] = useState<UserData | null>(null)
   const [transactions, setTransactions] = useState([])
   const [topCustomers, setTopCustomers] = useState([])
+  const [customers, setCustomers] = useState([])
   const [stats, setStats] = useState({
     totalSales: 0,
     totalDebt: 0,
@@ -92,16 +93,19 @@ export default function Home() {
 
   const fetchDashboard = async () => {
     try {
-      const res = await fetch('/api/dashboard', {
-        headers: getAuthHeaders(),
-      })
-      if (res.status === 401) {
+      const [dashboardRes, customersRes] = await Promise.all([
+        fetch('/api/dashboard', { headers: getAuthHeaders() }),
+        fetch('/api/customers', { headers: getAuthHeaders() }),
+      ])
+
+      if (dashboardRes.status === 401 || customersRes.status === 401) {
         localStorage.removeItem('token')
         localStorage.removeItem('user')
         router.push('/login')
         return
       }
-      const data = await res.json()
+
+      const data = await dashboardRes.json()
       setTransactions(data.transactions || [])
       setTopCustomers(data.topCustomers || [])
       setStats(
@@ -112,6 +116,9 @@ export default function Home() {
           outstandingCustomers: 0,
         }
       )
+
+      const customersData = await customersRes.json()
+      setCustomers(customersData.customers || [])
     } catch (error) {
       console.error('Dashboard Error:', error)
       toast.error('Failed to load dashboard')
@@ -285,7 +292,7 @@ export default function Home() {
               <TransactionsContent transactions={transactions} onMarkAsPaid={markAsPaid} />
             )}
 
-            {activeTab === 'customers' && <CustomersContent transactions={transactions} />}
+            {activeTab === 'customers' && <CustomersContent customers={customers} transactions={transactions} />}
 
             {activeTab === 'settings' && <SettingsContent user={user} />}
           </div>
