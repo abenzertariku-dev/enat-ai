@@ -28,6 +28,8 @@ interface NavigationProps {
   onLogout: () => void
   /** Optional per-tab badge counts, e.g. { customers: 4 } for unpaid balances */
   badges?: Partial<Record<string, number>>
+  /** Called whenever the desktop sidebar collapses/expands, so the page can adjust its own left margin */
+  onCollapsedChange?: (collapsed: boolean) => void
 }
 
 const tabs = [
@@ -74,7 +76,7 @@ function initials(name: string) {
     .join('')
 }
 
-export default function Navigation({ activeTab, onTabChange, user, onLogout, badges }: NavigationProps) {
+export default function Navigation({ activeTab, onTabChange, user, onLogout, badges, onCollapsedChange }: NavigationProps) {
   const [isMobile, setIsMobile] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
@@ -96,6 +98,8 @@ export default function Navigation({ activeTab, onTabChange, user, onLogout, bad
 
   useEffect(() => {
     window.localStorage.setItem('eg-nav-collapsed', collapsed ? '1' : '0')
+    onCollapsedChange?.(collapsed)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collapsed])
 
   // Slide a single active indicator between buttons instead of restyling each one

@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { prisma } from '@/lib/prisma'
 import { extractFromImage } from '@/lib/gemini'
+import { recordTransaction } from '@/lib/transactions'
 import jwt from 'jsonwebtoken'
 
-// Helper to get user from token
+const MAX_IMAGE_BYTES = 8 * 1024 * 1024 // 8MB
+const ACCEPTED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic']
+
 function getUserId(req: NextRequest): string | null {
   try {
     const token = req.headers.get('authorization')?.split(' ')[1]
@@ -23,77 +25,35 @@ export async function POST(req: NextRequest) {
     }
 
     const formData = await req.formData()
-    const image = formData.get('image') as File
+    const image = formData.get('image') as File | null
 
     if (!image) {
       return NextResponse.json({ error: 'No image provided' }, { status: 400 })
     }
 
-    // Convert image to base64
+    if (image.size > MAX_IMAGE_BYTES) {
+      return NextResponse.json({ error: 'Image is too large (max 8MB)' }, { status: 400 })
+    }
+
+    if (image.type && !ACCEPTED_TYPES.includes(image.type)) {
+      return NextResponse.json({ error: 'Unsupported image type' }, { status: 400 })
+    }
+
     const bytes = await image.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-    const base64 = buffer.toString('base64')
+    const base64 = Buffer.from(bytes).toString('base64')
 
-    // AI Extraction
-    const extracted = await extractFromImage(base64)
-    
-    if (extracted.error) {
-      return NextResponse.json({ error: extracted.error }, { status: 400 })
+    const extracted = await extractFromImage(base64, image.type || 'image/jpeg')
+
+    if ('error' in extracted) {
+      return NextResponse.json({ error: extracted.error }, { status: 422 })
     }
 
-    // Get or create customer (scoped to user)
-    let customer = await prisma.customer.findFirst({
-      where: {
-        name: extracted.customerName,
-        userId: userId
-      }
-    })
+    const transaction = await recordTransaction(userId, extracted, 'image upload')
 
-    if (!customer) {
-      customer = await prisma.customer.create({
-        data: {
-          name: extracted.customerName,
-          userId: userId,
-          totalDebt: 0,
-          totalPaid: 0
-        }
-      })
-    }
-
-    // Create transaction
-    const transaction = await prisma.transaction.create({
-      data: {
-        customerId: customer.id,
-        userId: userId,
-        product: extracted.product,
-        quantity: extracted.quantity || 1,
-        amount: extracted.amount,
-        type: extracted.type,
-        status: extracted.type === 'credit' ? 'unpaid' : 'paid',
-        description: extracted.description || 'From image upload'
-      },
-      include: {
-        customer: true
-      }
-    })
-
-    // Update customer totals
-    if (extracted.type === 'credit') {
-      await prisma.customer.update({
-        where: { id: customer.id },
-        data: { totalDebt: { increment: extracted.amount } }
-      })
-    } else {
-      await prisma.customer.update({
-        where: { id: customer.id },
-        data: { totalPaid: { increment: extracted.amount } }
-      })
-    }
-
-    return NextResponse.json({ 
-      success: true, 
+    return NextResponse.json({
+      success: true,
       transaction,
-      message: 'Transaction added successfully'
+      message: 'Transaction added successfully',
     })
   } catch (error) {
     console.error('Upload Error:', error)

@@ -23,7 +23,15 @@ interface Transaction {
   date: string
 }
 
+interface TopCustomer {
+  id: string
+  name: string
+  totalDebt: number
+}
+
 interface DashboardContentProps {
+  /** Authoritative debt ranking from Customer.totalDebt (route-computed, not derived from the capped transaction list) */
+  topCustomers?: TopCustomer[]
   stats: {
     totalSales: number
     totalDebt: number
@@ -82,6 +90,7 @@ function StatCard({
 export default function DashboardContent({
   stats,
   transactions,
+  topCustomers,
   onMarkAsPaid,
   onAddSample,
   isLoading,
@@ -108,6 +117,11 @@ export default function DashboardContent({
   }, [transactions])
 
   const topDebtors = useMemo(() => {
+    if (topCustomers && topCustomers.length > 0) {
+      return topCustomers.map((c) => ({ name: c.name, amount: c.totalDebt }))
+    }
+    // Fallback if topCustomers wasn't passed: derive from the visible transactions.
+    // Less accurate once a merchant has more than 50 transactions — prefer passing topCustomers.
     const map = new Map<string, number>()
     transactions
       .filter((t) => t.status === 'unpaid')
@@ -118,7 +132,7 @@ export default function DashboardContent({
       .map(([name, amount]) => ({ name, amount }))
       .sort((a, b) => b.amount - a.amount)
       .slice(0, 5)
-  }, [transactions])
+  }, [topCustomers, transactions])
 
   const weekTotal = salesTrend.reduce((s, d) => s + d.sales, 0)
   const trendDelta = (() => {

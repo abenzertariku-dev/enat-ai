@@ -19,26 +19,42 @@ interface UserData {
   phone: string | null
 }
 
+const PAGE_TITLES: Record<string, string> = {
+  dashboard: 'Dashboard',
+  scan: 'Scan to Ledger',
+  voice: 'Voice to Ledger',
+  transactions: 'Transactions',
+  customers: 'Customers',
+  settings: 'Settings',
+}
+
 export default function Home() {
   const router = useRouter()
   const [activeTab, setActiveTab] = useState('dashboard')
   const [isLoading, setIsLoading] = useState(true)
   const [user, setUser] = useState<UserData | null>(null)
   const [transactions, setTransactions] = useState([])
+  const [topCustomers, setTopCustomers] = useState([])
   const [stats, setStats] = useState({
     totalSales: 0,
     totalDebt: 0,
     totalTransactions: 0,
-    outstandingCustomers: 0
+    outstandingCustomers: 0,
   })
   const [loading, setLoading] = useState(false)
-  const [voiceText, setVoiceText] = useState('')
-  const [isRecording, setIsRecording] = useState(false)
+  const [lastVoiceResult, setLastVoiceResult] = useState<{
+    transcript?: string
+    customerName: string
+    product: string
+    amount: number
+    type: 'credit' | 'debit'
+  } | null>(null)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
   const getAuthHeaders = (isFormData: boolean = false): Record<string, string> => {
     const token = localStorage.getItem('token')
     const headers: Record<string, string> = {
-      'Authorization': `Bearer ${token}`
+      Authorization: `Bearer ${token}`,
     }
     if (!isFormData) {
       headers['Content-Type'] = 'application/json'
@@ -54,30 +70,30 @@ export default function Home() {
     }
 
     fetch('/api/auth/me', {
-      headers: getAuthHeaders()
+      headers: getAuthHeaders(),
     })
-    .then(res => {
-      if (!res.ok) throw new Error('Invalid token')
-      return res.json()
-    })
-    .then(data => {
-      if (data?.user) {
-        setUser(data.user)
-        setIsLoading(false)
-        fetchDashboard()
-      }
-    })
-    .catch(() => {
-      localStorage.removeItem('token')
-      localStorage.removeItem('user')
-      router.push('/login')
-    })
+      .then((res) => {
+        if (!res.ok) throw new Error('Invalid token')
+        return res.json()
+      })
+      .then((data) => {
+        if (data?.user) {
+          setUser(data.user)
+          setIsLoading(false)
+          fetchDashboard()
+        }
+      })
+      .catch(() => {
+        localStorage.removeItem('token')
+        localStorage.removeItem('user')
+        router.push('/login')
+      })
   }, [router])
 
   const fetchDashboard = async () => {
     try {
       const res = await fetch('/api/dashboard', {
-        headers: getAuthHeaders()
+        headers: getAuthHeaders(),
       })
       if (res.status === 401) {
         localStorage.removeItem('token')
@@ -87,12 +103,15 @@ export default function Home() {
       }
       const data = await res.json()
       setTransactions(data.transactions || [])
-      setStats(data.stats || {
-        totalSales: 0,
-        totalDebt: 0,
-        totalTransactions: 0,
-        outstandingCustomers: 0
-      })
+      setTopCustomers(data.topCustomers || [])
+      setStats(
+        data.stats || {
+          totalSales: 0,
+          totalDebt: 0,
+          totalTransactions: 0,
+          outstandingCustomers: 0,
+        }
+      )
     } catch (error) {
       console.error('Dashboard Error:', error)
       toast.error('Failed to load dashboard')
@@ -108,11 +127,11 @@ export default function Home() {
       const res = await fetch('/api/upload', {
         method: 'POST',
         headers: getAuthHeaders(true),
-        body: formData
+        body: formData,
       })
 
       if (res.ok) {
-        toast.success('✅ Transaction added from photo!')
+        toast.success('Transaction added from photo')
         await fetchDashboard()
       } else {
         const data = await res.json()
@@ -125,48 +144,39 @@ export default function Home() {
     }
   }
 
-  const startVoiceRecording = () => {
-    if (!('webkitSpeechRecognition' in window)) {
-      toast.error('Voice recognition not supported. Try Chrome.')
-      return
-    }
+  const handleAudioRecorded = async (audioBlob: Blob) => {
+    setLoading(true)
+    const formData = new FormData()
+    const ext = audioBlob.type.includes('mp4') ? 'm4a' : audioBlob.type.includes('ogg') ? 'ogg' : 'webm'
+    formData.append('audio', audioBlob, `recording.${ext}`)
 
-    setIsRecording(true)
-    const recognition = new (window as any).webkitSpeechRecognition()
-    recognition.lang = 'am-ET'
-    recognition.continuous = false
-    recognition.interimResults = false
+    try {
+      const res = await fetch('/api/voice/audio', {
+        method: 'POST',
+        headers: getAuthHeaders(true),
+        body: formData,
+      })
 
-    recognition.onresult = async (event: any) => {
-      const text = event.results[0][0].transcript
-      setVoiceText(text)
-      setIsRecording(false)
+      const data = await res.json()
 
-      try {
-        const res = await fetch('/api/voice', {
-          method: 'POST',
-          headers: getAuthHeaders(),
-          body: JSON.stringify({ text })
+      if (res.ok) {
+        setLastVoiceResult({
+          transcript: data.transcript,
+          customerName: data.transaction.customer.name,
+          product: data.transaction.product,
+          amount: data.transaction.amount,
+          type: data.transaction.type,
         })
-
-        if (res.ok) {
-          toast.success('🎤 Transaction added from voice!')
-          await fetchDashboard()
-        } else {
-          const data = await res.json()
-          toast.error(data.error || 'Failed to process voice')
-        }
-      } catch (error) {
-        toast.error('Network error')
+        toast.success('Transaction added from voice')
+        await fetchDashboard()
+      } else {
+        toast.error(data.error || 'Failed to process voice')
       }
+    } catch (error) {
+      toast.error('Network error')
+    } finally {
+      setLoading(false)
     }
-
-    recognition.onerror = () => {
-      setIsRecording(false)
-      toast.error('Voice recognition failed. Please try again.')
-    }
-
-    recognition.start()
   }
 
   const markAsPaid = async (id: string) => {
@@ -174,11 +184,11 @@ export default function Home() {
       const res = await fetch('/api/transactions', {
         method: 'PUT',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ id, status: 'paid' })
+        body: JSON.stringify({ id, status: 'paid' }),
       })
 
       if (res.ok) {
-        toast.success('✅ Marked as paid!')
+        toast.success('Marked as paid')
         await fetchDashboard()
       }
     } catch (error) {
@@ -192,12 +202,12 @@ export default function Home() {
       const res = await fetch('/api/voice', {
         method: 'POST',
         headers: getAuthHeaders(),
-        body: JSON.stringify({ 
-          text: "Kebede bought 2 bags of teff on credit for 16000 Birr" 
-        })
+        body: JSON.stringify({
+          text: 'Kebede bought 2 bags of teff on credit for 16000 Birr',
+        }),
       })
       if (res.ok) {
-        toast.success('📊 Sample transaction added!')
+        toast.success('Sample transaction added')
         await fetchDashboard()
       } else {
         toast.error('Failed to add sample')
@@ -218,94 +228,72 @@ export default function Home() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+      <div className="flex min-h-screen items-center justify-center bg-[#FBF9F5]">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-b-4 border-emerald-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600 font-medium">Loading EthioGenz...</p>
+          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-[3px] border-[#0F6B4C]/15 border-t-[#0F6B4C]" />
+          <p className="mt-4 text-[13.5px] font-medium text-[#1F2A24]/50">Loading EthioGenz…</p>
         </div>
       </div>
     )
   }
 
-  // Main content with sidebar
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navigation */}
-      <Navigation 
+    <div className="min-h-screen bg-[#F4F1EA]">
+      <Navigation
         activeTab={activeTab}
         onTabChange={setActiveTab}
         user={user}
         onLogout={handleLogout}
+        onCollapsedChange={setSidebarCollapsed}
       />
 
-      {/* Main Content */}
-      <div className="md:ml-64 md:p-8">
-        <div className="max-w-4xl mx-auto">
-          {/* Mobile spacing */}
-          <div className="h-16 md:h-0"></div>
-          
+      {/* Main content — margin tracks the sidebar's collapsed width on desktop */}
+      <div
+        className={`transition-[margin] duration-300 ease-out md:p-8 ${
+          sidebarCollapsed ? 'md:ml-[76px]' : 'md:ml-64'
+        }`}
+      >
+        <div className="mx-auto max-w-4xl">
+          {/* Mobile top-bar spacing */}
+          <div className="h-16 md:hidden" />
+
           <div className="p-4 md:p-0">
             <div className="mb-6">
-              <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
-                {activeTab === 'dashboard' && '📊 Dashboard'}
-                {activeTab === 'scan' && '📸 Scan to Ledger'}
-                {activeTab === 'voice' && '🎙 Voice to Ledger'}
-                {activeTab === 'transactions' && '📋 Transactions'}
-                {activeTab === 'customers' && '👥 Customers'}
-                {activeTab === 'settings' && '⚙️ Settings'}
+              <h1 className="font-serif text-2xl font-bold tracking-tight text-[#1F2A24] md:text-3xl">
+                {PAGE_TITLES[activeTab]}
               </h1>
             </div>
 
             {activeTab === 'dashboard' && (
-              <DashboardContent 
+              <DashboardContent
                 stats={stats}
                 transactions={transactions}
+                topCustomers={topCustomers}
                 onMarkAsPaid={markAsPaid}
                 onAddSample={addSampleTransaction}
                 isLoading={loading}
               />
             )}
 
-            {activeTab === 'scan' && (
-              <ScanContent 
-                onPhotoUpload={handlePhotoUpload}
-                isLoading={loading}
-              />
-            )}
+            {activeTab === 'scan' && <ScanContent onPhotoUpload={handlePhotoUpload} isLoading={loading} />}
 
             {activeTab === 'voice' && (
-              <VoiceContent 
-                isRecording={isRecording}
-                onStartRecording={startVoiceRecording}
-                voiceText={voiceText}
-                isLoading={loading}
-              />
+              <VoiceContent onAudioRecorded={handleAudioRecorded} isLoading={loading} lastResult={lastVoiceResult} />
             )}
 
             {activeTab === 'transactions' && (
-              <TransactionsContent 
-                transactions={transactions}
-                onMarkAsPaid={markAsPaid}
-              />
+              <TransactionsContent transactions={transactions} onMarkAsPaid={markAsPaid} />
             )}
 
-            {activeTab === 'customers' && (
-              <CustomersContent 
-                transactions={transactions}
-              />
-            )}
+            {activeTab === 'customers' && <CustomersContent transactions={transactions} />}
 
-            {activeTab === 'settings' && (
-              <SettingsContent 
-                user={user}
-              />
-            )}
+            {activeTab === 'settings' && <SettingsContent user={user} />}
           </div>
         </div>
       </div>
 
-      {/* Mobile bottom padding for navigation */}
-      <div className="h-20 md:hidden"></div>
+      {/* Mobile bottom-nav spacing */}
+      <div className="h-20 md:hidden" />
     </div>
   )
 }
