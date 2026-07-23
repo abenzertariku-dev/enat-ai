@@ -1,18 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { extractFromAudio } from '@/lib/gemini'
-import { recordTransaction } from '@/lib/transactions'
+import { prisma } from '@/lib/prisma'
+import { extractFromText, extractFromAudio } from '@/lib/gemini'
 import jwt from 'jsonwebtoken'
-
-const MAX_AUDIO_BYTES = 15 * 1024 * 1024 // 15MB — short voice clips, plenty of headroom
-const ACCEPTED_TYPES = [
-  'audio/webm',
-  'audio/ogg',
-  'audio/mp4',
-  'audio/mpeg',
-  'audio/wav',
-  'audio/x-m4a',
-  'audio/aac',
-]
 
 function getUserId(req: NextRequest): string | null {
   try {
@@ -32,43 +21,166 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
-    const formData = await req.formData()
-    const audio = formData.get('audio') as File | null
+    const contentType = req.headers.get('content-type') || ''
 
-    if (!audio) {
-      return NextResponse.json({ error: 'No audio provided' }, { status: 400 })
+    // 🔥 CASE 1: JSON with text (from demo button or typed input)
+    if (contentType.includes('application/json')) {
+      const body = await req.json()
+      const { text } = body
+
+      if (!text) {
+        return NextResponse.json({ error: 'No text provided' }, { status: 400 })
+      }
+
+      // Extract transaction from text
+      const extracted = await extractFromText(text)
+
+      if ('error' in extracted) {
+        return NextResponse.json({ error: extracted.error }, { status: 400 })
+      }
+
+      // Get or create customer
+      let customer = await prisma.customer.findFirst({
+        where: {
+          name: extracted.customerName,
+          userId: userId
+        }
+      })
+
+      if (!customer) {
+        customer = await prisma.customer.create({
+          data: {
+            name: extracted.customerName,
+            userId: userId,
+            totalDebt: 0,
+            totalPaid: 0
+          }
+        })
+      }
+
+      // Create transaction
+      const transaction = await prisma.transaction.create({
+        data: {
+          customerId: customer.id,
+          userId: userId,
+          product: extracted.product,
+          quantity: extracted.quantity || 1,
+          amount: extracted.amount,
+          type: extracted.type,
+          status: extracted.type === 'credit' ? 'unpaid' : 'paid',
+          description: extracted.description || 'From text input'
+        },
+        include: {
+          customer: true
+        }
+      })
+
+      // Update customer totals
+      if (extracted.type === 'credit') {
+        await prisma.customer.update({
+          where: { id: customer.id },
+          data: { totalDebt: { increment: extracted.amount } }
+        })
+      } else {
+        await prisma.customer.update({
+          where: { id: customer.id },
+          data: { totalPaid: { increment: extracted.amount } }
+        })
+      }
+
+      return NextResponse.json({
+        success: true,
+        transaction,
+        message: 'Transaction added successfully'
+      })
     }
 
-    if (audio.size > MAX_AUDIO_BYTES) {
-      return NextResponse.json({ error: 'Recording is too large (max 15MB)' }, { status: 400 })
+    // 🔥 CASE 2: FormData with audio file (from voice recording upload)
+    if (contentType.includes('multipart/form-data')) {
+      const formData = await req.formData()
+      const audio = formData.get('audio') as File | null
+
+      if (!audio) {
+        return NextResponse.json({ error: 'No audio file provided' }, { status: 400 })
+      }
+
+      // Convert audio to base64
+      const bytes = await audio.arrayBuffer()
+      const buffer = Buffer.from(bytes)
+      const base64 = buffer.toString('base64')
+      const mimeType = audio.type || 'audio/webm'
+
+      // Extract transaction from audio
+      const extracted = await extractFromAudio(base64, mimeType)
+
+      if ('error' in extracted) {
+        return NextResponse.json({ error: extracted.error }, { status: 400 })
+      }
+
+      // Get or create customer
+      let customer = await prisma.customer.findFirst({
+        where: {
+          name: extracted.customerName,
+          userId: userId
+        }
+      })
+
+      if (!customer) {
+        customer = await prisma.customer.create({
+          data: {
+            name: extracted.customerName,
+            userId: userId,
+            totalDebt: 0,
+            totalPaid: 0
+          }
+        })
+      }
+
+      // Create transaction
+      const transaction = await prisma.transaction.create({
+        data: {
+          customerId: customer.id,
+          userId: userId,
+          product: extracted.product,
+          quantity: extracted.quantity || 1,
+          amount: extracted.amount,
+          type: extracted.type,
+          status: extracted.type === 'credit' ? 'unpaid' : 'paid',
+          description: extracted.description || 'From audio input',
+          ...(extracted.transcript && { description: `Voice: ${extracted.transcript}` })
+        },
+        include: {
+          customer: true
+        }
+      })
+
+      // Update customer totals
+      if (extracted.type === 'credit') {
+        await prisma.customer.update({
+          where: { id: customer.id },
+          data: { totalDebt: { increment: extracted.amount } }
+        })
+      } else {
+        await prisma.customer.update({
+          where: { id: customer.id },
+          data: { totalPaid: { increment: extracted.amount } }
+        })
+      }
+
+      return NextResponse.json({
+        success: true,
+        transaction,
+        transcript: extracted.transcript,
+        message: 'Transaction added successfully from audio'
+      })
     }
 
-    // Browsers report MediaRecorder mimeType inconsistently (e.g. "audio/webm;codecs=opus"),
-    // so match on the base type rather than requiring an exact string.
-    const baseType = audio.type.split(';')[0]
-    if (baseType && !ACCEPTED_TYPES.includes(baseType)) {
-      return NextResponse.json({ error: 'Unsupported audio format' }, { status: 400 })
-    }
-
-    const bytes = await audio.arrayBuffer()
-    const base64 = Buffer.from(bytes).toString('base64')
-
-    const extracted = await extractFromAudio(base64, baseType || 'audio/webm')
-
-    if ('error' in extracted) {
-      return NextResponse.json({ error: extracted.error }, { status: 422 })
-    }
-
-    const transaction = await recordTransaction(userId, extracted, 'voice input')
-
-    return NextResponse.json({
-      success: true,
-      transaction,
-      transcript: extracted.transcript,
-      message: 'Transaction added successfully',
-    })
+    return NextResponse.json(
+      { error: 'Unsupported content type' },
+      { status: 400 }
+    )
   } catch (error) {
-    console.error('Voice Audio Error:', error)
+    console.error('Voice Error:', error)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }

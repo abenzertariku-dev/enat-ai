@@ -39,14 +39,13 @@ export async function GET(req: NextRequest) {
         take: 50,
       }),
 
-      // Total currently owed across ALL unpaid transactions (not date-scoped —
-      // outstanding debt doesn't reset daily the way sales does)
+      // Total currently owed across ALL unpaid transactions
       prisma.transaction.aggregate({
         where: { userId, status: 'unpaid' },
         _sum: { amount: true },
       }),
 
-      // Sales collected TODAY only, matching the "Today's Sales" label
+      // Sales collected TODAY only
       prisma.transaction.aggregate({
         where: { userId, status: 'paid', date: { gte: startOfToday } },
         _sum: { amount: true },
@@ -58,8 +57,7 @@ export async function GET(req: NextRequest) {
       // Only customers who actually owe something
       prisma.customer.count({ where: { userId, totalDebt: { gt: 0 } } }),
 
-      // Authoritative debt ranking, from Customer.totalDebt rather than
-      // recomputed client-side from a limited transaction slice
+      // Authoritative debt ranking from Customer.totalDebt
       prisma.customer.findMany({
         where: { userId, totalDebt: { gt: 0 } },
         orderBy: { totalDebt: 'desc' },
@@ -77,6 +75,10 @@ export async function GET(req: NextRequest) {
         outstandingCustomers: outstandingCustomersCount,
       },
       topCustomers,
+      // ✅ Optional: Add timestamp for debugging
+      _meta: {
+        fetchedAt: new Date().toISOString(),
+      },
     })
   } catch (error) {
     console.error('Dashboard Error:', error)
