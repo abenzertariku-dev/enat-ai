@@ -1,4 +1,6 @@
-import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai'
+// ──────────────────────────────────────────────────────────────────────────
+// GEMINI API UTILITY FILE FOR ETHIOGENZ LEDGER
+// ──────────────────────────────────────────────────────────────────────────
 
 const API_KEY = process.env.GEMINI_API_KEY || ''
 const isValidKey = API_KEY.startsWith('AIzaSy') || API_KEY.startsWith('AQ.')
@@ -8,22 +10,6 @@ if (!isValidKey) {
 } else {
   console.log('✅ Gemini API key detected (format: ' + (API_KEY.startsWith('AIzaSy') ? 'legacy' : 'new AQ. format') + ')')
 }
-
-const genAI = isValidKey ? new GoogleGenerativeAI(API_KEY) : null
-
-const safetySettings = [
-  { category: HarmCategory.HARM_CATEGORY_HARASSMENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-  { category: HarmCategory.HARM_CATEGORY_HATE_SPEECH, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-  { category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-  { category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT, threshold: HarmBlockThreshold.BLOCK_MEDIUM_AND_ABOVE },
-]
-
-// ✅ Try models without version suffixes first
-const MODELS = [
-  'gemini-1.5-flash',
-  'gemini-1.5-pro',
-  'gemini-2.0-flash-exp',
-]
 
 export interface ExtractedTransaction {
   customerName: string
@@ -36,6 +22,8 @@ export interface ExtractedTransaction {
 }
 
 type ExtractResult = ExtractedTransaction | { error: string }
+
+// ─── FALLBACK DATA ──────────────────────────────────────────────────────
 
 function getFallbackTransaction(text?: string): ExtractedTransaction {
   const words = text?.split(' ') || []
@@ -50,6 +38,8 @@ function getFallbackTransaction(text?: string): ExtractedTransaction {
     description: `Fallback: "${text || 'Sample transaction'}"`
   }
 }
+
+// ─── PARSER ──────────────────────────────────────────────────────────────
 
 const EXTRACTION_SCHEMA = `{
   "customerName": "string (the customer's name)",
@@ -91,19 +81,44 @@ function parseExtraction(raw: string): ExtractResult {
   }
 }
 
-// ✅ FIXED: Use v1 API instead of v1beta
-async function directGeminiCall(prompt: string, imageData?: string, mimeType: string = 'image/jpeg') {
-  for (const model of MODELS) {
+// ─── REST API CALL ──────────────────────────────────────────────────────
+
+async function callGeminiAPI(prompt: string, imageData?: string, mimeType: string = 'image/jpeg') {
+  if (!isValidKey) {
+    console.log('📊 Using fallback data (no valid Gemini API key)')
+    return JSON.stringify({
+      customerName: "Kebede",
+      product: "Teff",
+      quantity: 2,
+      amount: 16000,
+      type: "credit",
+      description: "Fallback: AI processing disabled"
+    })
+  }
+
+  // ✅ Updated to active Flash & Pro models
+  // ✅ Active production models for 2026
+  const modelNames = [
+    'gemini-3.5-flash',
+    'gemini-3.1-flash-lite'
+  ]
+
+  let lastError: Error | null = null
+
+  for (const model of modelNames) {
     try {
-      // ✅ Changed v1beta → v1
-      const endpoint = `https://generativelanguage.googleapis.com/v1/models/${model}:generateContent`
+      console.log(`🔍 Trying model: ${model}...`)
+      
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
       
       const parts: any[] = [{ text: prompt }]
       if (imageData) {
-        parts.push({ inlineData: { mimeType, data: imageData } })
+        parts.push({ inline_data: { mime_type: mimeType, data: imageData } })
       }
 
-      const body = { contents: [{ parts }] }
+      const body = {
+        contents: [{ parts }]
+      }
 
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -118,70 +133,28 @@ async function directGeminiCall(prompt: string, imageData?: string, mimeType: st
         const data = await response.json()
         const text = data.candidates?.[0]?.content?.parts?.[0]?.text
         if (text) {
-          console.log(`✅ Direct API call succeeded with model: ${model}`)
+          console.log(`✅ Model ${model} succeeded!`)
           return text
         }
       } else {
         const errorText = await response.text()
-        console.warn(`⚠️ Model ${model} returned ${response.status}: ${errorText.substring(0, 100)}`)
+        console.warn(`⚠️ Model ${model} failed (${response.status}):`, errorText.substring(0, 150))
+        
+        try {
+          const errorJson = JSON.parse(errorText)
+          if (errorJson.error?.message) {
+            console.warn(`   Error Message: ${errorJson.error.message}`)
+          }
+        } catch {
+          // Ignore JSON parse errors
+        }
       }
     } catch (error) {
-      console.warn(`⚠️ Model ${model} failed in direct call:`, error)
-    }
-  }
-  throw new Error('All Gemini models failed')
-}
-
-async function generateWithFallback(parts: (string | { inlineData: { mimeType: string; data: string } })[]) {
-  if (!genAI || !isValidKey) {
-    console.log('📊 Using fallback data (no valid Gemini API key)')
-    return JSON.stringify({
-      customerName: "Kebede",
-      product: "Teff",
-      quantity: 2,
-      amount: 16000,
-      type: "credit",
-      description: "Fallback: AI processing disabled"
-    })
-  }
-
-  // Try the library first (it uses v1beta internally)
-  let lastError: unknown
-  for (const modelName of MODELS) {
-    try {
-      console.log(`🔍 Trying Gemini model (library): ${modelName}...`)
-      const model = genAI.getGenerativeModel({ model: modelName, safetySettings })
-      const result = await model.generateContent(parts)
-      console.log(`✅ Gemini model ${modelName} succeeded!`)
-      return result.response.text()
-    } catch (error) {
-      console.warn(`⚠️ Gemini model ${modelName} failed:`, error)
-      lastError = error
+      console.warn(`⚠️ Model ${model} error:`, error)
+      lastError = error instanceof Error ? error : new Error(String(error))
     }
   }
 
-  // Fallback: Try direct API call with v1
-  try {
-    console.log('🔍 Trying direct API call with v1...')
-    const prompt = parts.find(p => typeof p === 'string') as string || ''
-    const imageData = parts.find(p => typeof p !== 'string' && 'inlineData' in p)
-    
-    let result: string
-    if (imageData && 'inlineData' in imageData) {
-      result = await directGeminiCall(
-        prompt,
-        imageData.inlineData.data,
-        imageData.inlineData.mimeType
-      )
-    } else {
-      result = await directGeminiCall(prompt)
-    }
-    return result
-  } catch (error) {
-    console.warn('⚠️ Direct API call failed:', error)
-    lastError = error
-  }
-  
   console.error('❌ All Gemini models failed. Using fallback data.')
   return JSON.stringify({
     customerName: "Kebede",
@@ -192,6 +165,8 @@ async function generateWithFallback(parts: (string | { inlineData: { mimeType: s
     description: "AI processing failed - using sample data"
   })
 }
+
+// ─── EXPORTED FUNCTIONS ────────────────────────────────────────────────
 
 export async function extractFromText(text: string): Promise<ExtractResult> {
   try {
@@ -210,7 +185,7 @@ Examples:
 If you cannot parse it, return: {"error": "Could not understand the text"}
 `
 
-    const raw = await generateWithFallback([prompt])
+    const raw = await callGeminiAPI(prompt)
     return parseExtraction(raw)
   } catch (error) {
     console.error('❌ Gemini Text Error:', error)
@@ -229,7 +204,7 @@ ${EXTRACTION_SCHEMA}
 If you cannot read the image clearly, return: {"error": "Could not read image clearly"}
 `
 
-    const raw = await generateWithFallback([prompt, { inlineData: { mimeType, data: imageBase64 } }])
+    const raw = await callGeminiAPI(prompt, imageBase64, mimeType)
     return parseExtraction(raw)
   } catch (error) {
     console.error('❌ Gemini Vision Error:', error)
@@ -256,7 +231,7 @@ Return ONLY a valid JSON object with this structure:
 If you cannot understand, return: {"error": "Could not understand the recording"}
 `
 
-    const raw = await generateWithFallback([prompt, { inlineData: { mimeType, data: audioBase64 } }])
+    const raw = await callGeminiAPI(prompt, audioBase64, mimeType)
     return parseExtraction(raw)
   } catch (error) {
     console.error('❌ Gemini Audio Error:', error)
