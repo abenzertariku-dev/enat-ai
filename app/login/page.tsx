@@ -234,7 +234,7 @@ export default function LoginPage() {
 
         <div className="mt-4 rounded-xl border border-[#E5A823]/25 bg-[#E5A823]/[0.08] p-3">
           <p className="text-center text-[11.5px] text-[#B8860B]">
-            Demo: register with any email — an 8+ character password is all that's required.
+             register with any email — an 8+ character password is all that's required.
           </p>
         </div>
       </div>
