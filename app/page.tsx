@@ -10,6 +10,7 @@ import VoiceContent from '@/app/components/VoiceContent'
 import TransactionsContent from '@/app/components/TransactionsContent'
 import CustomersContent from '@/app/components/CustomersContent'
 import SettingsContent from '@/app/components/SettingsContent'
+import BusinessInsights from '@/app/components/BusinessInsights' // ✅ Import Insights
 
 interface UserData {
   id: string
@@ -25,6 +26,7 @@ const PAGE_TITLES: Record<string, string> = {
   voice: 'Voice to Ledger',
   transactions: 'Transactions',
   customers: 'Customers',
+  insights: 'Business Insights', // ✅ New tab
   settings: 'Settings',
 }
 
@@ -293,6 +295,16 @@ export default function Home() {
             )}
 
             {activeTab === 'customers' && <CustomersContent customers={customers} transactions={transactions} />}
+
+            {/* ✅ NEW: Business Insights Tab */}
+            {activeTab === 'insights' && (
+              <BusinessInsights
+                transactions={transactions}
+                stats={stats}
+                onRefresh={fetchDashboard}
+                isLoading={loading}
+              />
+            )}
 
             {activeTab === 'settings' && <SettingsContent user={user} />}
           </div>

@@ -15,6 +15,7 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Building2,
+  BarChart3
 } from 'lucide-react'
 
 interface NavigationProps {
@@ -32,12 +33,14 @@ interface NavigationProps {
   onCollapsedChange?: (collapsed: boolean) => void
 }
 
+// In your tabs array - add 'insights'
 const tabs = [
   { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { id: 'scan', label: 'Scan', icon: Scan },
   { id: 'voice', label: 'Voice', icon: Mic },
   { id: 'transactions', label: 'Transactions', icon: Receipt },
   { id: 'customers', label: 'Customers', icon: Users },
+  { id: 'insights', label: 'Insights', icon: BarChart3 },  // ✅ NEW
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 
