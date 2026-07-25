@@ -1,6 +1,6 @@
 <<<<<<< HEAD
 <div align="center">
-  <img src="https://via.placeholder.com/800x200/0F6B4C/ffffff?text=📒+EthioGenz+Ledger" alt="EthioGenz Ledger Banner" width="800" />
+  <img src="https://via.placeholder.com/800x200/0F6B4C/ffffff?text=📒+Enat-Ai+Ledger" alt="Enat Ai Ledger Banner" width="800" />
   
   <h1>enat ai</h1>
   <p><strong>Turn Every Defter into Smart Business Intelligence</strong></p>
