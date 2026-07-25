@@ -18,6 +18,13 @@ model User {
   updatedAt     DateTime       @updatedAt
   customers     Customer[]
   transactions  Transaction[]
+  businessType  String?
+  teamSize      String?
+  location      String?
+  challenge     String?
+  stockItems    StockItem[]
+  stockSales    StockSale[]
+  stockAlerts   StockAlert[]
 }
 
 model Customer {
@@ -62,4 +69,47 @@ enum TransactionStatus {
   paid
   unpaid
   partial
+}
+
+model StockItem {
+  id            String         @id @default(cuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id])
+  name          String
+  category      String?
+  quantity      Float          @default(0)
+  unit          String?
+  purchasePrice Float?
+  sellingPrice  Float?
+  minQuantity   Float?         @default(5)
+  description   String?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  sales         StockSale[]
+  stockAlerts   StockAlert[]   // ✅ ADDED
+}
+
+model StockSale {
+  id            String         @id @default(cuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id])
+  stockItemId   String
+  stockItem     StockItem      @relation(fields: [stockItemId], references: [id])
+  quantity      Float
+  sellingPrice  Float
+  totalAmount   Float
+  date          DateTime       @default(now())
+  note          String?
+}
+
+model StockAlert {
+  id            String         @id @default(cuid())
+  userId        String
+  user          User           @relation(fields: [userId], references: [id])
+  stockItemId   String
+  stockItem     StockItem      @relation(fields: [stockItemId], references: [id])
+  type          String
+  message       String
+  isRead        Boolean        @default(false)
+  createdAt     DateTime       @default(now())
 }

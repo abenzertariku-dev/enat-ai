@@ -5,7 +5,9 @@ import {
   TrendingUp, TrendingDown, Wallet, Users, Clock, Award,
   Zap, AlertTriangle, CheckCircle, BarChart3, PieChart,
   Calendar, ArrowUpRight, ArrowDownRight, RefreshCw,
-  Lightbulb, Target, Shield, Sparkles, FileText, Download
+  Lightbulb, Target, Shield, Sparkles, FileText, Download,
+  Building2, MapPin, Users as UsersIcon, AlertCircle,
+  User, Mail, Phone, Calendar as CalendarIcon
 } from 'lucide-react'
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart as RePieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts'
 import toast from 'react-hot-toast'
@@ -30,6 +32,7 @@ interface BusinessInsightsProps {
   }
   onRefresh?: () => void
   isLoading?: boolean
+  userName?: string
 }
 
 const COLORS = ['#0F6B4C', '#C1442E', '#E5A823', '#2D6A4F', '#7A9B8A']
@@ -47,11 +50,51 @@ function getTrend(current: number, previous: number): { percentage: number; dire
   }
 }
 
-export default function BusinessInsights({ transactions, stats, onRefresh, isLoading }: BusinessInsightsProps) {
+export default function BusinessInsights({ transactions, stats, onRefresh, isLoading, userName }: BusinessInsightsProps) {
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'quarter'>('week')
   const [isGenerating, setIsGenerating] = useState(false)
   const [aiInsights, setAiInsights] = useState<string[]>([])
   const [showAiInsights, setShowAiInsights] = useState(true)
+  const [greeting, setGreeting] = useState<string>('')
+  const [businessProfile, setBusinessProfile] = useState<{
+    type: string
+    teamSize: string
+    location: string
+    challenge: string
+  } | null>(null)
+  const [userInfo, setUserInfo] = useState<{
+    name: string
+    email: string
+    businessName?: string
+    phone?: string
+  } | null>(null)
+
+  // ─── Fetch User Profile ─────────────────────────────────────────────
+
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      try {
+        const token = localStorage.getItem('token')
+        const res = await fetch('/api/auth/me', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.user) {
+            setUserInfo({
+              name: data.user.name,
+              email: data.user.email,
+              businessName: data.user.businessName,
+              phone: data.user.phone
+            })
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch user profile:', error)
+      }
+    }
+    fetchUserProfile()
+  }, [])
 
   // ─── Memoized Calculations ──────────────────────────────────────────
 
@@ -162,6 +205,8 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
       const data = await res.json()
       if (res.ok) {
         setAiInsights(data.insights || [])
+        setGreeting(data.greeting || '')
+        setBusinessProfile(data.businessProfile || null)
         toast.success('✨ AI insights generated!')
       } else {
         // Fallback insights
@@ -230,7 +275,7 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
 
   return (
     <div className="space-y-6">
-      {/* Header */}
+      {/* ─── HEADER ────────────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
           <h2 className="text-2xl font-bold text-[#1F2A24] flex items-center gap-2">
@@ -261,13 +306,85 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
         </div>
       </div>
 
-      {/* Stats Grid */}
+      {/* ─── USER PROFILE SECTION ────────────────────────────────────── */}
+      {userInfo && (
+        <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm">
+          <div className="flex flex-wrap items-center gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-600 text-white font-bold text-lg">
+                {userInfo.name?.charAt(0).toUpperCase() || 'U'}
+              </div>
+              <div>
+                <p className="font-bold text-[#1F2A24] text-lg">{userInfo.name}</p>
+                {userInfo.businessName && (
+                  <p className="text-sm text-[#1F2A24]/60 flex items-center gap-1">
+                    <Building2 size={14} />
+                    {userInfo.businessName}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex flex-wrap gap-3 text-sm text-[#1F2A24]/50 ml-auto">
+              {userInfo.email && (
+                <span className="flex items-center gap-1">
+                  <Mail size={14} />
+                  {userInfo.email}
+                </span>
+              )}
+              {userInfo.phone && (
+                <span className="flex items-center gap-1">
+                  <Phone size={14} />
+                  {userInfo.phone}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ─── PERSONALIZED GREETING ───────────────────────────────────── */}
+      {greeting && (
+        <div className="bg-gradient-to-r from-emerald-50 to-emerald-100/70 rounded-2xl border border-emerald-200 p-4">
+          <div className="flex items-center gap-2">
+            <Sparkles size={18} className="text-emerald-600" />
+            <p className="text-sm text-emerald-800 font-medium">{greeting}</p>
+          </div>
+        </div>
+      )}
+
+      {/* ─── BUSINESS PROFILE CARDS ──────────────────────────────────── */}
+      {businessProfile && (
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-white rounded-xl border border-black/5 p-3 shadow-sm text-center hover:shadow-md transition">
+            <Building2 size={18} className="mx-auto text-emerald-600 mb-1" />
+            <p className="text-[10px] text-[#1F2A24]/40">Business Type</p>
+            <p className="text-sm font-medium text-[#1F2A24] truncate">{businessProfile.type}</p>
+          </div>
+          <div className="bg-white rounded-xl border border-black/5 p-3 shadow-sm text-center hover:shadow-md transition">
+            <UsersIcon size={18} className="mx-auto text-emerald-600 mb-1" />
+            <p className="text-[10px] text-[#1F2A24]/40">Team Size</p>
+            <p className="text-sm font-medium text-[#1F2A24] truncate">{businessProfile.teamSize}</p>
+          </div>
+          <div className="bg-white rounded-xl border border-black/5 p-3 shadow-sm text-center hover:shadow-md transition">
+            <MapPin size={18} className="mx-auto text-emerald-600 mb-1" />
+            <p className="text-[10px] text-[#1F2A24]/40">Location</p>
+            <p className="text-sm font-medium text-[#1F2A24] truncate">{businessProfile.location}</p>
+          </div>
+          <div className="bg-white rounded-xl border border-black/5 p-3 shadow-sm text-center hover:shadow-md transition">
+            <AlertCircle size={18} className="mx-auto text-emerald-600 mb-1" />
+            <p className="text-[10px] text-[#1F2A24]/40">Main Challenge</p>
+            <p className="text-sm font-medium text-[#1F2A24] truncate">{businessProfile.challenge}</p>
+          </div>
+        </div>
+      )}
+
+      {/* ─── STATS GRID ────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
         {statCards.map((stat, index) => {
           const Icon = stat.icon
           const isUp = stat.trend.direction === 'up'
           return (
-            <div key={index} className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm">
+            <div key={index} className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm hover:shadow-md transition">
               <div className="flex items-center justify-between">
                 <div className={`p-2 rounded-xl ${stat.bg}`}>
                   <Icon size={16} className={stat.color} />
@@ -286,7 +403,7 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
         })}
       </div>
 
-      {/* AI Insights Banner */}
+      {/* ─── AI INSIGHTS BANNER ───────────────────────────────────────── */}
       {showAiInsights && aiInsights.length > 0 && (
         <div className="bg-gradient-to-r from-emerald-50 to-emerald-100/50 rounded-2xl border border-emerald-200 p-4">
           <div className="flex items-start justify-between">
@@ -300,7 +417,7 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {aiInsights.map((insight, i) => (
-                  <div key={i} className="flex items-start gap-2 bg-white/60 rounded-lg p-2">
+                  <div key={i} className="flex items-start gap-2 bg-white/60 rounded-lg p-2 hover:bg-white/80 transition">
                     <Lightbulb size={14} className="text-emerald-600 shrink-0 mt-0.5" />
                     <p className="text-sm text-[#1F2A24]">{insight}</p>
                   </div>
@@ -309,7 +426,7 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
             </div>
             <button
               onClick={() => setShowAiInsights(false)}
-              className="text-emerald-400 hover:text-emerald-600 transition"
+              className="text-emerald-400 hover:text-emerald-600 transition p-1"
             >
               ✕
             </button>
@@ -317,11 +434,14 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
         </div>
       )}
 
-      {/* Charts Grid */}
+      {/* ─── CHARTS GRID ───────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Sales Trend */}
-        <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm">
-          <h4 className="text-sm font-semibold text-[#1F2A24] mb-3">Sales Trend</h4>
+        <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm hover:shadow-md transition">
+          <h4 className="text-sm font-semibold text-[#1F2A24] mb-3 flex items-center gap-2">
+            <TrendingUp size={16} className="text-emerald-600" />
+            Sales Trend
+          </h4>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={insights.dailySales}>
@@ -336,8 +456,11 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
         </div>
 
         {/* Top Products */}
-        <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm">
-          <h4 className="text-sm font-semibold text-[#1F2A24] mb-3">Top Products</h4>
+        <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm hover:shadow-md transition">
+          <h4 className="text-sm font-semibold text-[#1F2A24] mb-3 flex items-center gap-2">
+            <Award size={16} className="text-emerald-600" />
+            Top Products
+          </h4>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={insights.topProducts} layout="vertical">
@@ -351,8 +474,11 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
         </div>
 
         {/* Payment Distribution */}
-        <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm">
-          <h4 className="text-sm font-semibold text-[#1F2A24] mb-3">Payment Status</h4>
+        <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm hover:shadow-md transition">
+          <h4 className="text-sm font-semibold text-[#1F2A24] mb-3 flex items-center gap-2">
+            <PieChart size={16} className="text-emerald-600" />
+            Payment Status
+          </h4>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
               <RePieChart>
@@ -377,8 +503,11 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
         </div>
 
         {/* Weekly Performance */}
-        <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm">
-          <h4 className="text-sm font-semibold text-[#1F2A24] mb-3">Weekly Performance</h4>
+        <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm hover:shadow-md transition">
+          <h4 className="text-sm font-semibold text-[#1F2A24] mb-3 flex items-center gap-2">
+            <CalendarIcon size={16} className="text-emerald-600" />
+            Weekly Performance
+          </h4>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={insights.weeklyData}>
@@ -393,7 +522,7 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
         </div>
       </div>
 
-      {/* Quick Actions */}
+      {/* ─── QUICK ACTIONS ────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <button className="bg-white rounded-2xl border border-black/5 p-4 text-center hover:shadow-md transition group">
           <FileText size={20} className="mx-auto text-emerald-600 group-hover:scale-110 transition" />

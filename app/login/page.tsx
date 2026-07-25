@@ -3,9 +3,61 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
-import { Eye, EyeOff } from 'lucide-react'
+import { Eye, EyeOff, MapPin, Building2, Users, AlertCircle } from 'lucide-react'
 
 const MIN_PASSWORD_LENGTH = 8
+
+// ─── Dropdown Options ────────────────────────────────────────────────
+
+const BUSINESS_TYPES = [
+  { value: 'coffee-shop', label: '☕ Coffee Shop' },
+  { value: 'restaurant', label: '🍽️ Restaurant' },
+  { value: 'shop', label: '🛍️ Shop / Retail' },
+  { value: 'teff-seller', label: '🌾 Teff / Grain Seller' },
+  { value: 'kiosk', label: '🏪 Kiosk / Convenience Store' },
+  { value: 'grocery', label: '🛒 Grocery Store' },
+  { value: 'bakery', label: '🥖 Bakery' },
+  { value: 'butcher', label: '🥩 Butcher / Meat Shop' },
+  { value: 'vegetable', label: '🥬 Vegetable / Fruit Seller' },
+  { value: 'clothing', label: '👕 Clothing / Fashion Shop' },
+  { value: 'electronics', label: '📱 Electronics / Mobile Shop' },
+  { value: 'hardware', label: '🔧 Hardware / Construction' },
+  { value: 'pharmacy', label: '💊 Pharmacy / Drug Store' },
+  { value: 'salon', label: '💇 Salon / Barber' },
+  { value: 'tailor', label: '🧵 Tailor / Sewing' },
+  { value: 'transport', label: '🚐 Transport / Logistics' },
+  { value: 'wholesale', label: '📦 Wholesale Distributor' },
+  { value: 'manufacturing', label: '🏭 Small Manufacturing' },
+  { value: 'farm', label: '🌱 Farm / Agriculture' },
+  { value: 'other', label: '📌 Other (please specify)' },
+]
+
+const TEAM_SIZES = [
+  { value: 'solo', label: '👤 Just me (Solo)' },
+  { value: '2-5', label: '👥 2 - 5 people' },
+  { value: '6-10', label: '👥 6 - 10 people' },
+  { value: '11-20', label: '👥 11 - 20 people' },
+  { value: '21-30', label: '👥 21 - 30 people' },
+  { value: '30+', label: '👥 More than 30 people' },
+  { value: 'other', label: '📌 Other (please specify)' },
+]
+
+const CHALLENGES = [
+  { value: 'stock', label: '📦 Running out of stock unexpectedly' },
+  { value: 'money', label: '💰 Not knowing where my money goes' },
+  { value: 'sales', label: '📉 Sales are not growing' },
+  { value: 'staff', label: '👥 Managing staff and shifts' },
+  { value: 'suppliers', label: '🔗 Finding reliable suppliers' },
+  { value: 'reports', label: '📊 Doing reports and tracking finances' },
+  { value: 'customers', label: '👤 Finding and keeping customers' },
+  { value: 'pricing', label: '🏷️ Setting the right prices' },
+  { value: 'competition', label: '🏪 Competition from other businesses' },
+  { value: 'technology', label: '💻 Learning new technology' },
+  { value: 'credit', label: '💳 Managing customer credit/debt' },
+  { value: 'other', label: '📌 Other (please specify)' },
+]
+
+// ─── Components ──────────────────────────────────────────────────────
 
 function LedgerMark({ size = 44 }: { size?: number }) {
   return (
@@ -22,14 +74,17 @@ function Field({
   label,
   required,
   children,
+  icon,
 }: {
   label: string
   required?: boolean
   children: React.ReactNode
+  icon?: React.ReactNode
 }) {
   return (
     <div>
-      <label className="mb-1 block text-[13px] font-medium text-[#1F2A24]/70">
+      <label className="mb-1 flex items-center gap-1.5 text-[13px] font-medium text-[#1F2A24]/70">
+        {icon && <span className="text-[#1F2A24]/40">{icon}</span>}
         {label} {required && <span className="text-[#C1442E]">*</span>}
       </label>
       {children}
@@ -40,19 +95,41 @@ function Field({
 const inputClass =
   'w-full rounded-xl border border-black/10 px-4 py-2.5 text-[14px] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#0F6B4C]/40'
 
+const selectClass =
+  'w-full rounded-xl border border-black/10 px-4 py-2.5 text-[14px] bg-white focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#0F6B4C]/40 appearance-none'
+
+// ─── Main Component ──────────────────────────────────────────────────
+
 export default function LoginPage() {
   const router = useRouter()
   const [isLogin, setIsLogin] = useState(true)
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
   const [confirmPassword, setConfirmPassword] = useState('')
+  const [step, setStep] = useState(1) // 1 = Basic, 2 = Business Details
+
   const [formData, setFormData] = useState({
+    // Basic Info
     name: '',
     email: '',
     password: '',
-    businessName: '',
     phone: '',
+    
+    // Business Details
+    businessName: '',
+    businessType: '',
+    businessTypeOther: '',
+    teamSize: '',
+    teamSizeOther: '',
+    location: '',
+    challenge: '',
+    challengeOther: '',
   })
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target
+    setFormData((prev) => ({ ...prev, [name]: value }))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -72,10 +149,25 @@ export default function LoginPage() {
     const endpoint = isLogin ? '/api/auth/login' : '/api/auth/register'
 
     try {
+      // Prepare data for registration
+      const payload = isLogin 
+        ? { email: formData.email, password: formData.password }
+        : {
+            name: formData.name,
+            email: formData.email,
+            password: formData.password,
+            phone: formData.phone,
+            businessName: formData.businessName,
+            businessType: formData.businessType === 'other' ? formData.businessTypeOther : formData.businessType,
+            teamSize: formData.teamSize === 'other' ? formData.teamSizeOther : formData.teamSize,
+            location: formData.location,
+            challenge: formData.challenge === 'other' ? formData.challengeOther : formData.challenge,
+          }
+
       const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(payload),
       })
 
       const data = await res.json()
@@ -84,13 +176,14 @@ export default function LoginPage() {
         if (isLogin) {
           localStorage.setItem('token', data.token)
           localStorage.setItem('user', JSON.stringify(data.user))
-          toast.success('Welcome back!')
+          toast.success('Welcome back! 🎉')
           router.push('/')
         } else {
-          toast.success('Account created — please sign in')
+          toast.success('🎉 Account created successfully! Please sign in.')
           setIsLogin(true)
           setFormData((f) => ({ ...f, password: '' }))
           setConfirmPassword('')
+          setStep(1)
         }
       } else {
         toast.error(data.error || 'Something went wrong')
@@ -102,140 +195,384 @@ export default function LoginPage() {
     }
   }
 
+  const nextStep = () => {
+    // Validate basic fields before moving to step 2
+    if (!formData.name || !formData.email || !formData.password || !confirmPassword) {
+      toast.error('Please fill in all required fields')
+      return
+    }
+    if (formData.password !== confirmPassword) {
+      toast.error('Passwords do not match')
+      return
+    }
+    if (formData.password.length < MIN_PASSWORD_LENGTH) {
+      toast.error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`)
+      return
+    }
+    setStep(2)
+  }
+
+  const prevStep = () => setStep(1)
+
+  // ─── Login Mode ─────────────────────────────────────────────────────
+
+  if (isLogin) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#F4F1EA] p-4">
+        <div className="w-full max-w-md rounded-2xl border border-black/5 bg-white p-8 shadow-[0_4px_24px_rgba(31,42,36,0.08)]">
+          <div className="mb-7 text-center">
+            <div className="mb-3 flex justify-center">
+              <LedgerMark />
+            </div>
+            <h1 className="font-serif text-2xl font-bold tracking-tight text-[#1F2A24]">EthioGenz</h1>
+            <p className="mt-2 text-[14px] text-[#1F2A24]/60">Welcome back</p>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-3.5">
+            <Field label="Email address" required>
+              <input
+                type="email"
+                name="email"
+                required
+                autoComplete="email"
+                className={inputClass}
+                value={formData.email}
+                onChange={handleChange}
+              />
+            </Field>
+
+            <Field label="Password" required>
+              <div className="relative">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  name="password"
+                  required
+                  autoComplete="current-password"
+                  className={`${inputClass} pr-11`}
+                  value={formData.password}
+                  onChange={handleChange}
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#1F2A24]/35 hover:text-[#1F2A24]/60"
+                  tabIndex={-1}
+                >
+                  {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                </button>
+              </div>
+            </Field>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full rounded-xl bg-[#0F6B4C] py-3 font-semibold text-white transition hover:bg-[#0B5A3F] disabled:opacity-50"
+            >
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                  Loading…
+                </span>
+              ) : (
+                'Sign in'
+              )}
+            </button>
+          </form>
+
+          <div className="mt-5 text-center">
+            <button
+              onClick={() => {
+                setIsLogin(false)
+                setStep(1)
+                setFormData((f) => ({ ...f, password: '' }))
+                setConfirmPassword('')
+              }}
+              className="text-[13px] font-medium text-[#0F6B4C] hover:text-[#0B5A3F]"
+            >
+              Don't have an account? Sign up
+            </button>
+          </div>
+
+          <div className="mt-4 rounded-xl border border-[#E5A823]/25 bg-[#E5A823]/[0.08] p-3">
+            <p className="text-center text-[11.5px] text-[#B8860B]">
+              🔐 Demo: Use any email — 8+ character password
+            </p>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ─── Registration Mode ─────────────────────────────────────────────
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-[#F4F1EA] p-4">
       <div className="w-full max-w-md rounded-2xl border border-black/5 bg-white p-8 shadow-[0_4px_24px_rgba(31,42,36,0.08)]">
-        <div className="mb-7 text-center">
+        <div className="mb-6 text-center">
           <div className="mb-3 flex justify-center">
             <LedgerMark />
           </div>
           <h1 className="font-serif text-2xl font-bold tracking-tight text-[#1F2A24]">EthioGenz</h1>
-          <p className="mt-2 text-[14px] text-[#1F2A24]/60">
-            {isLogin ? 'Welcome back' : 'Create your account'}
-          </p>
-          <p className="mt-0.5 text-[12.5px] text-[#1F2A24]/40">
-            {isLogin ? 'Sign in to manage your ledger' : 'Start digitizing your Defter'}
-          </p>
+          <p className="mt-1 text-[14px] text-[#1F2A24]/60">Create your account</p>
+          <div className="mt-2 flex items-center justify-center gap-2">
+            <span className={`text-xs font-medium ${step === 1 ? 'text-[#0F6B4C]' : 'text-[#1F2A24]/30'}`}>
+              Step 1: Basic Info
+            </span>
+            <span className="text-[#1F2A24]/20">—</span>
+            <span className={`text-xs font-medium ${step === 2 ? 'text-[#0F6B4C]' : 'text-[#1F2A24]/30'}`}>
+              Step 2: Business Details
+            </span>
+          </div>
+          <div className="mt-1.5 h-1 w-full rounded-full bg-[#1F2A24]/10">
+            <div 
+              className="h-1 rounded-full bg-[#0F6B4C] transition-all duration-300"
+              style={{ width: step === 1 ? '50%' : '100%' }}
+            />
+          </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-3.5">
-          {!isLogin && (
+          {/* ─── STEP 1: Basic Info ──────────────────────────────────── */}
+          {step === 1 && (
             <>
-              <Field label="Full name" required>
+              <Field label="Full name" required icon={<Users size={14} />}>
                 <input
                   type="text"
+                  name="name"
                   required
                   autoComplete="name"
                   className={inputClass}
                   value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  onChange={handleChange}
+                  placeholder="e.g., Kebede Alemu"
                 />
               </Field>
-              <Field label="Business name">
+
+              <Field label="Email address" required icon={<span>📧</span>}>
                 <input
-                  type="text"
-                  autoComplete="organization"
+                  type="email"
+                  name="email"
+                  required
+                  autoComplete="email"
                   className={inputClass}
-                  value={formData.businessName}
-                  onChange={(e) => setFormData({ ...formData, businessName: e.target.value })}
+                  value={formData.email}
+                  onChange={handleChange}
+                  placeholder="kebede@example.com"
                 />
               </Field>
-              <Field label="Phone number">
+
+              <Field label="Phone number" icon={<span>📞</span>}>
                 <input
                   type="tel"
+                  name="phone"
                   autoComplete="tel"
                   className={inputClass}
                   value={formData.phone}
-                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  onChange={handleChange}
+                  placeholder="09XX XXX XXX"
                 />
               </Field>
+
+              <Field label="Password" required>
+                <div className="relative">
+                  <input
+                    type={showPassword ? 'text' : 'password'}
+                    name="password"
+                    required
+                    minLength={MIN_PASSWORD_LENGTH}
+                    autoComplete="new-password"
+                    className={`${inputClass} pr-11`}
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder="Min 8 characters"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[#1F2A24]/35 hover:text-[#1F2A24]/60"
+                    tabIndex={-1}
+                  >
+                    {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
+                  </button>
+                </div>
+                <p className="mt-1 text-[11.5px] text-[#1F2A24]/40">Minimum {MIN_PASSWORD_LENGTH} characters</p>
+              </Field>
+
+              <Field label="Confirm password" required>
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  name="confirmPassword"
+                  required
+                  autoComplete="new-password"
+                  className={inputClass}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter your password"
+                />
+              </Field>
+
+              <button
+                type="button"
+                onClick={nextStep}
+                className="w-full rounded-xl bg-[#0F6B4C] py-3 font-semibold text-white transition hover:bg-[#0B5A3F]"
+              >
+                Continue → Business Details
+              </button>
             </>
           )}
 
-          <Field label="Email address" required>
-            <input
-              type="email"
-              required
-              autoComplete="email"
-              className={inputClass}
-              value={formData.email}
-              onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-            />
-          </Field>
+          {/* ─── STEP 2: Business Details ────────────────────────────── */}
+          {step === 2 && (
+            <>
+              <div className="rounded-xl bg-[#0F6B4C]/[0.05] border border-[#0F6B4C]/20 p-3">
+                <p className="text-xs text-[#1F2A24]/60">
+                  👋 Tell us about your business so we can tailor EthioGenz for you
+                </p>
+              </div>
 
-          <Field label="Password" required>
-            <div className="relative">
-              <input
-                type={showPassword ? 'text' : 'password'}
-                required
-                minLength={isLogin ? undefined : MIN_PASSWORD_LENGTH}
-                autoComplete={isLogin ? 'current-password' : 'new-password'}
-                className={`${inputClass} pr-11`}
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((v) => !v)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#1F2A24]/35 hover:text-[#1F2A24]/60"
-                tabIndex={-1}
-              >
-                {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
-              </button>
-            </div>
-            {!isLogin && (
-              <p className="mt-1 text-[11.5px] text-[#1F2A24]/40">Minimum {MIN_PASSWORD_LENGTH} characters</p>
-            )}
-          </Field>
+              <Field label="Business name" required icon={<Building2 size={14} />}>
+                <input
+                  type="text"
+                  name="businessName"
+                  required
+                  className={inputClass}
+                  value={formData.businessName}
+                  onChange={handleChange}
+                  placeholder="e.g., Kebede's Teff Shop"
+                />
+              </Field>
 
-          {!isLogin && (
-            <Field label="Confirm password" required>
-              <input
-                type={showPassword ? 'text' : 'password'}
-                required
-                autoComplete="new-password"
-                className={inputClass}
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
-            </Field>
+              <Field label="What type of business?" required icon={<span>🏪</span>}>
+                <select
+                  name="businessType"
+                  required
+                  className={selectClass}
+                  value={formData.businessType}
+                  onChange={handleChange}
+                >
+                  <option value="">Select your business type</option>
+                  {BUSINESS_TYPES.map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
+                </select>
+                {formData.businessType === 'other' && (
+                  <input
+                    type="text"
+                    name="businessTypeOther"
+                    className={`${inputClass} mt-2`}
+                    value={formData.businessTypeOther}
+                    onChange={handleChange}
+                    placeholder="Please specify your business type"
+                  />
+                )}
+              </Field>
+
+              <Field label="Team size" required icon={<Users size={14} />}>
+                <select
+                  name="teamSize"
+                  required
+                  className={selectClass}
+                  value={formData.teamSize}
+                  onChange={handleChange}
+                >
+                  <option value="">How many people work with you?</option>
+                  {TEAM_SIZES.map((size) => (
+                    <option key={size.value} value={size.value}>
+                      {size.label}
+                    </option>
+                  ))}
+                </select>
+                {formData.teamSize === 'other' && (
+                  <input
+                    type="number"
+                    name="teamSizeOther"
+                    className={`${inputClass} mt-2`}
+                    value={formData.teamSizeOther}
+                    onChange={handleChange}
+                    placeholder="How many people?"
+                    min="1"
+                  />
+                )}
+              </Field>
+
+              <Field label="Business location" icon={<MapPin size={14} />}>
+                <input
+                  type="text"
+                  name="location"
+                  className={inputClass}
+                  value={formData.location}
+                  onChange={handleChange}
+                  placeholder="e.g., Addis Ababa, Merkato"
+                />
+              </Field>
+
+              <Field label="What's your biggest challenge?" icon={<AlertCircle size={14} />}>
+                <select
+                  name="challenge"
+                  className={selectClass}
+                  value={formData.challenge}
+                  onChange={handleChange}
+                >
+                  <option value="">Select your main challenge</option>
+                  {CHALLENGES.map((challenge) => (
+                    <option key={challenge.value} value={challenge.value}>
+                      {challenge.label}
+                    </option>
+                  ))}
+                </select>
+                {formData.challenge === 'other' && (
+                  <input
+                    type="text"
+                    name="challengeOther"
+                    className={`${inputClass} mt-2`}
+                    value={formData.challengeOther}
+                    onChange={handleChange}
+                    placeholder="Please describe your challenge"
+                  />
+                )}
+              </Field>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={prevStep}
+                  className="flex-1 rounded-xl border border-black/10 py-3 font-medium text-[#1F2A24]/60 transition hover:bg-black/5"
+                >
+                  ← Back
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 rounded-xl bg-[#0F6B4C] py-3 font-semibold text-white transition hover:bg-[#0B5A3F] disabled:opacity-50"
+                >
+                  {loading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
+                      Creating…
+                    </span>
+                  ) : (
+                    'Create account'
+                  )}
+                </button>
+              </div>
+            </>
           )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-xl bg-[#0F6B4C] py-3 font-semibold text-white transition hover:bg-[#0B5A3F] disabled:opacity-50"
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                Loading…
-              </span>
-            ) : isLogin ? (
-              'Sign in'
-            ) : (
-              'Create account'
-            )}
-          </button>
         </form>
 
         <div className="mt-5 text-center">
           <button
             onClick={() => {
-              setIsLogin(!isLogin)
+              setIsLogin(true)
               setFormData((f) => ({ ...f, password: '' }))
               setConfirmPassword('')
+              setStep(1)
             }}
             className="text-[13px] font-medium text-[#0F6B4C] hover:text-[#0B5A3F]"
           >
-            {isLogin ? "Don't have an account? Sign up" : 'Already have an account? Sign in'}
+            Already have an account? Sign in
           </button>
-        </div>
-
-        <div className="mt-4 rounded-xl border border-[#E5A823]/25 bg-[#E5A823]/[0.08] p-3">
-          <p className="text-center text-[11.5px] text-[#B8860B]">
-             register with any email — an 8+ character password is all that's required.
-          </p>
         </div>
       </div>
     </div>
