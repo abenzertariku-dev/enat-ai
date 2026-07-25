@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import jwt from 'jsonwebtoken'
+import { checkStockLevel } from '@/lib/stock'
 
 function getUserId(req: NextRequest): string | null {
   try {
@@ -55,55 +56,106 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No items provided' }, { status: 400 })
     }
 
-    // Process each item
     const results = []
     for (const item of items) {
       const { name, quantity, unit, sellingPrice, purchasePrice, minQuantity, category, description } = item
 
-      // Check if item already exists
-      const existing = await prisma.stockItem.findFirst({
-        where: {
-          userId,
-          name: { equals: name, mode: 'insensitive' }
+      // Use a transaction to ensure consistency
+      const result = await prisma.$transaction(async (tx) => {
+        // Get all items for case-insensitive check (SQLite doesn't support mode: 'insensitive')
+        const allItems = await tx.stockItem.findMany({
+          where: { userId },
+          select: { 
+            id: true, 
+            name: true, 
+            quantity: true, 
+            sellingPrice: true, 
+            purchasePrice: true, 
+            minQuantity: true, 
+            unit: true, 
+            category: true, 
+            description: true 
+          }
+        })
+
+        const existing = allItems.find(
+          (i) => i.name.toLowerCase() === name.toLowerCase()
+        )
+
+        let itemResult
+        if (existing) {
+          itemResult = await tx.stockItem.update({
+            where: { id: existing.id },
+            data: {
+              quantity: existing.quantity + (quantity || 0),
+              sellingPrice: sellingPrice || existing.sellingPrice,
+              purchasePrice: purchasePrice || existing.purchasePrice,
+              minQuantity: minQuantity || existing.minQuantity,
+              unit: unit || existing.unit,
+              category: category || existing.category,
+              description: description || existing.description,
+            }
+          })
+
+          // ✅ Create transaction for stock addition (update)
+          await tx.transaction.create({
+            data: {
+              userId,
+              customerId: null,
+              product: name,
+              quantity: quantity || 0,
+              amount: (quantity || 0) * (purchasePrice || 0),
+              type: 'debit',
+              status: 'paid',
+              description: `📦 Added ${quantity || 0} ${unit || 'units'} of ${name} to stock (updated)`,
+              source: 'stock_in',
+              stockItemId: existing.id,
+            }
+          })
+
+          // Check stock level after update
+          await checkStockLevel(tx, userId, existing.id)
+        } else {
+          const created = await tx.stockItem.create({
+            data: {
+              userId,
+              name,
+              quantity: quantity || 0,
+              unit: unit || 'units',
+              sellingPrice: sellingPrice || 0,
+              purchasePrice: purchasePrice || 0,
+              minQuantity: minQuantity || 5,
+              category: category || 'Uncategorized',
+              description: description || '',
+            }
+          })
+
+          // ✅ Create transaction for new stock
+          await tx.transaction.create({
+            data: {
+              userId,
+              customerId: null,
+              product: name,
+              quantity: quantity || 0,
+              amount: (quantity || 0) * (purchasePrice || 0),
+              type: 'debit',
+              status: 'paid',
+              description: `📦 Added ${quantity || 0} ${unit || 'units'} of ${name} to stock (new)`,
+              source: 'stock_in',
+              stockItemId: created.id,
+            }
+          })
+
+          // Check stock level after creation
+          await checkStockLevel(tx, userId, created.id)
+          itemResult = created
         }
+
+        return { action: existing ? 'updated' : 'created', item: itemResult }
       })
 
-      if (existing) {
-        // Update existing item
-        const updated = await prisma.stockItem.update({
-          where: { id: existing.id },
-          data: {
-            quantity: existing.quantity + (quantity || 0),
-            sellingPrice: sellingPrice || existing.sellingPrice,
-            purchasePrice: purchasePrice || existing.purchasePrice,
-            minQuantity: minQuantity || existing.minQuantity,
-            unit: unit || existing.unit,
-            category: category || existing.category,
-            description: description || existing.description,
-          }
-        })
-        results.push({ action: 'updated', item: updated })
-      } else {
-        // Create new item
-        const created = await prisma.stockItem.create({
-          data: {
-            userId,
-            name,
-            quantity: quantity || 0,
-            unit: unit || 'units',
-            sellingPrice: sellingPrice || 0,
-            purchasePrice: purchasePrice || 0,
-            minQuantity: minQuantity || 5,
-            category: category || 'Uncategorized',
-            description: description || '',
-          }
-        })
-        results.push({ action: 'created', item: created })
-      }
+      results.push(result)
     }
-
-    // Check for low stock alerts
-    await checkLowStockAlerts(userId)
 
     return NextResponse.json({
       success: true,
@@ -131,13 +183,35 @@ export async function PUT(req: NextRequest) {
       return NextResponse.json({ error: 'Item ID required' }, { status: 400 })
     }
 
-    const item = await prisma.stockItem.update({
-      where: { id },
-      data,
-    })
+    // Use transaction for consistency
+    const item = await prisma.$transaction(async (tx) => {
+      const updated = await tx.stockItem.update({
+        where: { id },
+        data,
+      })
 
-    // Check for low stock alerts
-    await checkLowStockAlerts(userId)
+      // ✅ Create transaction for stock update (if quantity changed)
+      if (data.quantity !== undefined) {
+        await tx.transaction.create({
+          data: {
+            userId,
+            customerId: null,
+            product: updated.name,
+            quantity: data.quantity || 0,
+            amount: 0,
+            type: 'debit',
+            status: 'paid',
+            description: `📝 Updated stock: ${updated.name} to ${data.quantity} ${updated.unit || 'units'}`,
+            source: 'stock_in',
+            stockItemId: id,
+          }
+        })
+      }
+
+      // Check stock level after update
+      await checkStockLevel(tx, userId, id)
+      return updated
+    })
 
     return NextResponse.json({ success: true, item })
   } catch (error) {
@@ -162,52 +236,39 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: 'Item ID required' }, { status: 400 })
     }
 
+    // Check if item exists and belongs to user
+    const item = await prisma.stockItem.findFirst({
+      where: { id, userId }
+    })
+
+    if (!item) {
+      return NextResponse.json({ error: 'Item not found' }, { status: 404 })
+    }
+
+    // Delete the item (cascade will delete sales and alerts)
     await prisma.stockItem.delete({
       where: { id }
+    })
+
+    // ✅ Create transaction for deletion
+    await prisma.transaction.create({
+      data: {
+        userId,
+        customerId: null,
+        product: item.name,
+        quantity: 0,
+        amount: 0,
+        type: 'debit',
+        status: 'paid',
+        description: `🗑️ Removed ${item.name} from stock`,
+        source: 'stock_in',
+        stockItemId: id,
+      }
     })
 
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error('Stock DELETE Error:', error)
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
-  }
-}
-
-// ─── Helper: Check Low Stock Alerts ─────────────────────────────────
-
-async function checkLowStockAlerts(userId: string) {
-  const items = await prisma.stockItem.findMany({
-    where: { userId }
-  })
-
-  for (const item of items) {
-    const isLow = item.quantity <= (item.minQuantity || 5)
-    const isOut = item.quantity <= 0
-
-    if (isLow || isOut) {
-      // Check if alert already exists
-      const existingAlert = await prisma.stockAlert.findFirst({
-        where: {
-          userId,
-          stockItemId: item.id,
-          isRead: false
-        }
-      })
-
-      if (!existingAlert) {
-        const message = isOut 
-          ? `🚨 ${item.name} is OUT OF STOCK! Please restock immediately.`
-          : `⚠️ ${item.name} is running low (${item.quantity} ${item.unit || 'units'} remaining). Consider restocking.`
-        
-        await prisma.stockAlert.create({
-          data: {
-            userId,
-            stockItemId: item.id,
-            type: isOut ? 'out_of_stock' : 'low_stock',
-            message,
-          }
-        })
-      }
-    }
   }
 }

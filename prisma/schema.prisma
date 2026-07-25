@@ -44,8 +44,8 @@ model Customer {
 
 model Transaction {
   id            String         @id @default(cuid())
-  customerId    String
-  customer      Customer       @relation(fields: [customerId], references: [id])
+  customerId    String?        // ✅ Changed from String to String?
+  customer      Customer?      @relation(fields: [customerId], references: [id])
   userId        String
   user          User           @relation(fields: [userId], references: [id])
   product       String
@@ -58,6 +58,8 @@ model Transaction {
   paymentDate   DateTime?
   createdAt     DateTime       @default(now())
   updatedAt     DateTime       @updatedAt
+  source        String?        // "voice", "scan", "stock_in", "stock_out"
+  stockItemId   String?
 }
 
 enum TransactionType {

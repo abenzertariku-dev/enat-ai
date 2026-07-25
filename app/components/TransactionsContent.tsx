@@ -1,15 +1,16 @@
 'use client'
-
 import { Search, ChevronDown, Inbox, SearchX } from 'lucide-react'
 import { useState } from 'react'
 
 interface Transaction {
   id: string
-  customer: { name: string }
+  customer: { name: string } | null  // ✅ Allow null
   product: string
   amount: number
   status: 'paid' | 'unpaid' | 'partial'
   date: string
+  source?: 'voice' | 'scan' | 'stock_in' | 'stock_out'
+  description?: string
 }
 
 interface TransactionsContentProps {
@@ -23,13 +24,25 @@ const STATUS_STYLE: Record<string, { badge: string; amount: string; label: strin
   partial: { badge: 'bg-[#E5A823]/15 text-[#B8860B]', amount: 'text-[#B8860B]', label: 'Partial' },
 }
 
+// ✅ Source badge configuration
+const SOURCE_STYLES: Record<string, { label: string; className: string }> = {
+  voice: { label: '🎙️ Voice', className: 'bg-purple-100 text-purple-700' },
+  scan: { label: '📸 Scan', className: 'bg-orange-100 text-orange-700' },
+  stock_in: { label: '📦 Stock In', className: 'bg-emerald-100 text-emerald-700' },
+  stock_out: { label: '🛒 Sale', className: 'bg-blue-100 text-blue-700' },
+}
+
 export default function TransactionsContent({ transactions, onMarkAsPaid }: TransactionsContentProps) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
 
+  // ✅ FIX: Safe filtering - handle null customer
   const filtered = transactions.filter((t) => {
     const q = search.toLowerCase()
-    const matchSearch = t.customer.name.toLowerCase().includes(q) || t.product.toLowerCase().includes(q)
+    // ✅ Safe access: use optional chaining and fallback
+    const customerName = t.customer?.name?.toLowerCase() || ''
+    const productName = t.product?.toLowerCase() || ''
+    const matchSearch = customerName.includes(q) || productName.includes(q)
     const matchFilter = filter === 'all' || t.status === filter
     return matchSearch && matchFilter
   })
@@ -92,17 +105,38 @@ export default function TransactionsContent({ transactions, onMarkAsPaid }: Tran
           <div className="space-y-2">
             {filtered.map((t) => {
               const style = STATUS_STYLE[t.status] ?? STATUS_STYLE.unpaid
+              const sourceStyle = t.source ? SOURCE_STYLES[t.source] : null
+              const isStockTransaction = t.source === 'stock_in' || t.source === 'stock_out'
+
               return (
                 <div
                   key={t.id}
                   className="flex items-center justify-between rounded-xl bg-[#FBF9F5] p-3 transition hover:bg-[#F3EFE6]"
                 >
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-[13.5px] font-semibold text-[#1F2A24]">{t.customer.name}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="truncate text-[13.5px] font-semibold text-[#1F2A24]">
+                        {/* ✅ Show "Stock System" for stock transactions, otherwise customer name */}
+                        {isStockTransaction ? '📦 Stock System' : (t.customer?.name || 'Unknown Customer')}
+                      </p>
+                      {/* Source badge */}
+                      {sourceStyle && (
+                        <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded ${sourceStyle.className}`}>
+                          {sourceStyle.label}
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2 text-[12px] text-[#1F2A24]/45">
                       <span className="truncate">{t.product}</span>
                       <span className="h-0.5 w-0.5 rounded-full bg-[#1F2A24]/25" />
                       <span>{new Date(t.date).toLocaleDateString()}</span>
+                      {/* Show description if available */}
+                      {t.description && (
+                        <>
+                          <span className="h-0.5 w-0.5 rounded-full bg-[#1F2A24]/25" />
+                          <span className="truncate text-[#1F2A24]/30">{t.description}</span>
+                        </>
+                      )}
                     </div>
                   </div>
                   <div className="ml-2 flex-shrink-0 text-right">
@@ -111,8 +145,8 @@ export default function TransactionsContent({ transactions, onMarkAsPaid }: Tran
                       <span className={`rounded px-1.5 py-0.5 text-[10.5px] font-semibold ${style.badge}`}>
                         {style.label}
                       </span>
-                      {/* Always visible — a hover-only reveal here means this is unreachable on touch devices */}
-                      {t.status !== 'paid' && (
+                      {/* Only show "Mark paid" for non-stock transactions */}
+                      {t.status !== 'paid' && !isStockTransaction && (
                         <button
                           onClick={() => onMarkAsPaid(t.id)}
                           className="rounded bg-[#1F2A24]/8 px-2 py-0.5 text-[10.5px] font-semibold text-[#1F2A24]/70 transition hover:bg-[#1F2A24]/15"

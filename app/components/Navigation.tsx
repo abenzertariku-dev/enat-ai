@@ -15,7 +15,8 @@ import {
   ChevronsLeft,
   ChevronsRight,
   Building2,
-  BarChart3
+  BarChart3,
+  Package,
 } from 'lucide-react'
 
 interface NavigationProps {
@@ -40,7 +41,8 @@ const tabs = [
   { id: 'voice', label: 'Voice', icon: Mic },
   { id: 'transactions', label: 'Transactions', icon: Receipt },
   { id: 'customers', label: 'Customers', icon: Users },
-  { id: 'insights', label: 'Insights', icon: BarChart3 },  // ✅ NEW
+  { id: 'insights', label: 'Insights', icon: BarChart3 },
+  { id: 'stock', label: 'Stock', icon: Package },  // ✅ NEW
   { id: 'settings', label: 'Settings', icon: Settings },
 ]
 

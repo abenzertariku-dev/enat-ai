@@ -10,7 +10,13 @@ import VoiceContent from '@/app/components/VoiceContent'
 import TransactionsContent from '@/app/components/TransactionsContent'
 import CustomersContent from '@/app/components/CustomersContent'
 import SettingsContent from '@/app/components/SettingsContent'
-import BusinessInsights from '@/app/components/BusinessInsights' // ✅ Import Insights
+import BusinessInsights from '@/app/components/BusinessInsights'
+import StockInventory from '@/app/components/StockInventory'
+import StockImporter from '@/app/components/StockImporter'
+import StockSales from '@/app/components/StockSales'
+import StockAlerts from '@/app/components/StockAlerts'
+// ✅ NEW: Import Stock Alert Widget
+import StockAlertWidget from '@/app/components/StockAlertWidget'
 
 interface UserData {
   id: string
@@ -26,7 +32,8 @@ const PAGE_TITLES: Record<string, string> = {
   voice: 'Voice to Ledger',
   transactions: 'Transactions',
   customers: 'Customers',
-  insights: 'Business Insights', // ✅ New tab
+  insights: 'Business Insights',
+  stock: 'Stock Management',
   settings: 'Settings',
 }
 
@@ -53,6 +60,11 @@ export default function Home() {
     type: 'credit' | 'debit'
   } | null>(null)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+
+  // Stock state
+  const [stockItems, setStockItems] = useState([])
+  const [stockAlerts, setStockAlerts] = useState([])
+  const [stockTab, setStockTab] = useState<'inventory' | 'import' | 'sales' | 'alerts'>('inventory')
 
   const getAuthHeaders = (isFormData: boolean = false): Record<string, string> => {
     const token = localStorage.getItem('token')
@@ -84,6 +96,8 @@ export default function Home() {
           setUser(data.user)
           setIsLoading(false)
           fetchDashboard()
+          fetchStockData()
+          fetchStockAlerts()
         }
       })
       .catch(() => {
@@ -124,6 +138,30 @@ export default function Home() {
     } catch (error) {
       console.error('Dashboard Error:', error)
       toast.error('Failed to load dashboard')
+    }
+  }
+
+  const fetchStockData = async () => {
+    try {
+      const res = await fetch('/api/stock', { headers: getAuthHeaders() })
+      if (res.ok) {
+        const data = await res.json()
+        setStockItems(data.items || [])
+      }
+    } catch (error) {
+      console.error('Stock Fetch Error:', error)
+    }
+  }
+
+  const fetchStockAlerts = async () => {
+    try {
+      const res = await fetch('/api/stock/alerts', { headers: getAuthHeaders() })
+      if (res.ok) {
+        const data = await res.json()
+        setStockAlerts(data.alerts || [])
+      }
+    } catch (error) {
+      console.error('Alerts Fetch Error:', error)
     }
   }
 
@@ -256,14 +294,12 @@ export default function Home() {
         onCollapsedChange={setSidebarCollapsed}
       />
 
-      {/* Main content — margin tracks the sidebar's collapsed width on desktop */}
       <div
         className={`transition-[margin] duration-300 ease-out md:p-8 ${
           sidebarCollapsed ? 'md:ml-[76px]' : 'md:ml-64'
         }`}
       >
         <div className="mx-auto max-w-4xl">
-          {/* Mobile top-bar spacing */}
           <div className="h-16 md:hidden" />
 
           <div className="p-4 md:p-0">
@@ -274,14 +310,20 @@ export default function Home() {
             </div>
 
             {activeTab === 'dashboard' && (
-              <DashboardContent
-                stats={stats}
-                transactions={transactions}
-                topCustomers={topCustomers}
-                onMarkAsPaid={markAsPaid}
-                onAddSample={addSampleTransaction}
-                isLoading={loading}
-              />
+              <>
+                {/* ✅ NEW: Stock Alert Widget - Shows at top of dashboard */}
+                <div className="mb-4">
+                  <StockAlertWidget onViewAll={() => setActiveTab('stock')} />
+                </div>
+                <DashboardContent
+                  stats={stats}
+                  transactions={transactions}
+                  topCustomers={topCustomers}
+                  onMarkAsPaid={markAsPaid}
+                  onAddSample={addSampleTransaction}
+                  isLoading={loading}
+                />
+              </>
             )}
 
             {activeTab === 'scan' && <ScanContent onPhotoUpload={handlePhotoUpload} isLoading={loading} />}
@@ -296,7 +338,6 @@ export default function Home() {
 
             {activeTab === 'customers' && <CustomersContent customers={customers} transactions={transactions} />}
 
-            {/* ✅ NEW: Business Insights Tab */}
             {activeTab === 'insights' && (
               <BusinessInsights
                 transactions={transactions}
@@ -306,12 +347,81 @@ export default function Home() {
               />
             )}
 
+            {activeTab === 'stock' && (
+              <div className="space-y-4">
+                <div className="flex gap-1 bg-white rounded-xl border border-black/5 p-1">
+                  {[
+                    { id: 'inventory', label: 'Inventory' },
+                    { id: 'import', label: 'Add Items' },
+                    { id: 'sales', label: 'Sales' },
+                    { id: 'alerts', label: 'Alerts' },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setStockTab(tab.id as any)}
+                      className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition ${
+                        stockTab === tab.id
+                          ? 'bg-emerald-600 text-white shadow-sm'
+                          : 'text-[#1F2A24]/60 hover:bg-gray-50'
+                      }`}
+                    >
+                      {tab.label} {tab.id === 'alerts' && stockAlerts.length > 0 && (
+                        <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-red-500 text-white rounded-full">
+                          {stockAlerts.length}
+                        </span>
+                      )}
+                    </button>
+                  ))}
+                </div>
+
+                {stockTab === 'inventory' && (
+                  <StockInventory
+                    items={stockItems}
+                    onRefresh={() => {
+                      fetchStockData()
+                      fetchStockAlerts()
+                    }}
+                    onUpdateItem={() => {
+                      fetchStockData()
+                      fetchStockAlerts()
+                    }}
+                  />
+                )}
+
+                {stockTab === 'import' && (
+                  <StockImporter
+                    onImportComplete={() => {
+                      fetchStockData()
+                      fetchStockAlerts()
+                    }}
+                  />
+                )}
+
+                {stockTab === 'sales' && (
+                  <StockSales
+                    items={stockItems}
+                    onSaleComplete={() => {
+                      fetchStockData()
+                      fetchStockAlerts()
+                    }}
+                  />
+                )}
+
+                {stockTab === 'alerts' && (
+                  <StockAlerts
+                    alerts={stockAlerts}
+                    onDismiss={fetchStockAlerts}
+                    onRefresh={fetchStockAlerts}
+                  />
+                )}
+              </div>
+            )}
+
             {activeTab === 'settings' && <SettingsContent user={user} />}
           </div>
         </div>
       </div>
 
-      {/* Mobile bottom-nav spacing */}
       <div className="h-20 md:hidden" />
     </div>
   )

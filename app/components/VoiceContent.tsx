@@ -1,153 +1,374 @@
 'use client'
 
-import { useRef, useState } from 'react'
-import { Mic, Square, AlertCircle, FileAudio } from 'lucide-react'
-
-interface VoiceResult {
-  transcript?: string
-  customerName: string
-  product: string
-  amount: number
-  type: 'credit' | 'debit'
-}
+import { useState, useRef } from 'react'
+import { Mic, MicOff, Play, Square, Check, X, RefreshCw, AlertCircle, Clock } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 interface VoiceContentProps {
-  /** Called with the recorded audio once the user stops recording. Parent uploads it and refreshes the dashboard. */
-  onAudioRecorded: (audio: Blob) => void
+  onAudioRecorded: (audioBlob: Blob) => Promise<void>
   isLoading: boolean
-  /** Set by the parent once the upload finishes, so this screen can show what was understood. */
-  lastResult?: VoiceResult | null
+  lastResult?: {
+    transcript?: string
+    customerName: string
+    product: string
+    amount: number
+    type: 'credit' | 'debit'
+  } | null
 }
-
-const EXAMPLE_PHRASES = [
-  '"Kebede bought 2 bags of teff on credit for 16,000 Birr"',
-  '"Almaz paid 500 Birr for coffee"',
-  '"ከበደ በ 16000 ብር እዳ 2 ኩንታል ጤፍ ገዛ"',
-]
 
 export default function VoiceContent({ onAudioRecorded, isLoading, lastResult }: VoiceContentProps) {
   const [isRecording, setIsRecording] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [recordingTime, setRecordingTime] = useState(0)
+  const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
+  const [showReview, setShowReview] = useState(false)
+  const [reviewData, setReviewData] = useState<any>(null)
+  const [isProcessing, setIsProcessing] = useState(false)
+  
   const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-  const chunksRef = useRef<Blob[]>([])
-  const streamRef = useRef<MediaStream | null>(null)
+  const chunksRef = useRef<BlobPart[]>([])
+  const timerRef = useRef<NodeJS.Timeout | null>(null)
+
+  // ─── Recording Functions ──────────────────────────────────────────
 
   const startRecording = async () => {
-    setError(null)
-    if (!navigator.mediaDevices?.getUserMedia) {
-      setError('Microphone access is not supported in this browser.')
-      return
-    }
-
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-      streamRef.current = stream
+      const mediaRecorder = new MediaRecorder(stream)
+      mediaRecorderRef.current = mediaRecorder
       chunksRef.current = []
 
-      const recorder = new MediaRecorder(stream)
-      mediaRecorderRef.current = recorder
-
-      recorder.ondataavailable = (e) => {
-        if (e.data.size > 0) chunksRef.current.push(e.data)
+      mediaRecorder.ondataavailable = (e) => {
+        if (e.data.size > 0) {
+          chunksRef.current.push(e.data)
+        }
       }
 
-      recorder.onstop = () => {
-        const blob = new Blob(chunksRef.current, { type: recorder.mimeType || 'audio/webm' })
-        streamRef.current?.getTracks().forEach((track) => track.stop())
-        streamRef.current = null
-        if (blob.size > 0) onAudioRecorded(blob)
+      mediaRecorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        setAudioBlob(blob)
+        processAudio(blob)
+        
+        // Clean up
+        stream.getTracks().forEach(track => track.stop())
       }
 
-      recorder.start()
+      mediaRecorder.start()
       setIsRecording(true)
-    } catch {
-      setError('Microphone permission was denied. Allow mic access and try again.')
+      setRecordingTime(0)
+      
+      timerRef.current = setInterval(() => {
+        setRecordingTime(prev => prev + 1)
+      }, 1000)
+
+      toast.success('🎙️ Recording... Speak clearly', {
+        icon: '🎙️',
+        duration: 3000,
+      })
+    } catch (error) {
+      console.error('Microphone Error:', error)
+      toast.error('Could not access microphone. Please check permissions.')
     }
   }
 
   const stopRecording = () => {
-    mediaRecorderRef.current?.stop()
-    setIsRecording(false)
+    if (mediaRecorderRef.current && isRecording) {
+      mediaRecorderRef.current.stop()
+      setIsRecording(false)
+      
+      if (timerRef.current) {
+        clearInterval(timerRef.current)
+        timerRef.current = null
+      }
+    }
   }
+
+  // ─── Process Audio ─────────────────────────────────────────────────
+
+  const processAudio = async (blob: Blob) => {
+    setIsProcessing(true)
+    setShowReview(false)
+    
+    try {
+      const token = localStorage.getItem('token')
+      const formData = new FormData()
+      const ext = blob.type.includes('mp4') ? 'm4a' : blob.type.includes('ogg') ? 'ogg' : 'webm'
+      formData.append('audio', blob, `recording.${ext}`)
+
+      const res = await fetch('/api/voice/transcribe', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData,
+      })
+
+      const data = await res.json()
+
+      if (res.ok) {
+        // Show review screen with extracted data
+        setReviewData({
+          transcript: data.transcript || 'No transcription available',
+          customerName: data.extracted?.customerName || 'Unknown',
+          product: data.extracted?.product || 'Unknown',
+          amount: data.extracted?.amount || 0,
+          type: data.extracted?.type || 'credit',
+          description: data.extracted?.description || '',
+          rawText: data.transcript || '',
+          confidence: data.confidence || 0.85
+        })
+        setShowReview(true)
+      } else {
+        toast.error(data.error || 'Failed to process voice')
+        // Reset so user can try again
+        setAudioBlob(null)
+      }
+    } catch (error) {
+      console.error('Process Error:', error)
+      toast.error('Network error. Please try again.')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  // ─── Review Actions ─────────────────────────────────────────────────
+
+  const handleSubmit = async () => {
+    if (!audioBlob) return
+    
+    setIsProcessing(true)
+    try {
+      await onAudioRecorded(audioBlob)
+      setShowReview(false)
+      setAudioBlob(null)
+      setReviewData(null)
+      toast.success('✅ Transaction saved successfully!', {
+        icon: '✅',
+        duration: 3000,
+      })
+    } catch (error) {
+      toast.error('Failed to save transaction')
+    } finally {
+      setIsProcessing(false)
+    }
+  }
+
+  // ✅ FIXED: Use toast() with icon instead of toast.info()
+  const handleCancel = () => {
+    setShowReview(false)
+    setAudioBlob(null)
+    setReviewData(null)
+    toast('Recording cancelled', {
+      icon: 'ℹ️',
+      duration: 3000,
+    })
+  }
+
+  const handleRetry = () => {
+    setShowReview(false)
+    setAudioBlob(null)
+    setReviewData(null)
+    // Start recording again
+    startRecording()
+  }
+
+  // ─── Format Time ────────────────────────────────────────────────────
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+  }
+
+  // ─── Render ─────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-black/5 bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <h2 className="text-lg font-bold tracking-tight text-[#1F2A24]">Voice to ledger</h2>
+      {/* Header */}
+      <div className="bg-white rounded-2xl border border-black/5 p-6 shadow-sm">
+        <h2 className="text-lg font-bold tracking-tight text-[#1F2A24] flex items-center gap-2">
+          <Mic className="text-emerald-600" size={20} />
+          Voice to Ledger
+        </h2>
         <p className="mt-1 text-sm text-[#1F2A24]/50">
-          Speak in Amharic or English — the recording is sent to the AI directly, not transcribed by
-          your browser first, so Amharic comes through much more reliably.
+          {isRecording ? '🔴 Recording...' : 'Speak in Amharic or English to add transactions'}
         </p>
       </div>
 
-      <div className="rounded-2xl border border-black/5 bg-white p-8">
-        <div className="flex flex-col items-center justify-center">
-          <div className="relative">
-            <div
-              className={`flex h-32 w-32 items-center justify-center rounded-full transition-all ${
-                isRecording ? 'bg-[#C1442E]/10' : 'bg-[#0F6B4C]/10'
-              }`}
-            >
-              <button
-                onClick={isRecording ? stopRecording : startRecording}
-                disabled={isLoading}
-                className={`flex h-24 w-24 items-center justify-center rounded-full transition-all disabled:opacity-50 ${
-                  isRecording ? 'bg-[#C1442E] hover:bg-[#A73A26]' : 'bg-[#0F6B4C] hover:bg-[#0B5A3F]'
-                }`}
-              >
-                {isRecording ? <Square size={28} className="text-white" /> : <Mic size={32} className="text-white" />}
-              </button>
-            </div>
+      {/* ─── RECORDING VIEW ──────────────────────────────────────────── */}
+      {!showReview && !isProcessing && (
+        <div className="bg-white rounded-2xl border border-black/5 p-8 shadow-sm text-center">
+          <div className="flex flex-col items-center">
+            {/* Timer */}
             {isRecording && (
-              <span className="absolute -right-1 -top-1 flex h-4 w-4">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#C1442E]/60" />
-                <span className="relative inline-flex h-4 w-4 rounded-full bg-[#C1442E]" />
-              </span>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
+                  <span className="text-sm font-mono text-gray-600">{formatTime(recordingTime)}</span>
+                </div>
+                <span className="text-sm text-gray-400">• Recording</span>
+              </div>
+            )}
+
+            {/* Mic Button */}
+            <button
+              onClick={isRecording ? stopRecording : startRecording}
+              disabled={isLoading || isProcessing}
+              className={`relative w-32 h-32 rounded-full flex items-center justify-center transition-all ${
+                isRecording
+                  ? 'bg-red-500 hover:bg-red-600 animate-pulse'
+                  : 'bg-emerald-600 hover:bg-emerald-700'
+              } disabled:opacity-50`}
+            >
+              {isRecording ? (
+                <Square size={32} className="text-white" />
+              ) : (
+                <Mic size={32} className="text-white" />
+              )}
+              
+              {/* Ripple effect when recording */}
+              {isRecording && (
+                <>
+                  <span className="absolute inset-0 rounded-full border-4 border-red-300 animate-ping opacity-75" />
+                  <span className="absolute inset-0 rounded-full border-4 border-red-200 animate-ping opacity-50 delay-300" />
+                </>
+              )}
+            </button>
+
+            <p className="mt-4 text-sm font-medium text-[#1F2A24]">
+              {isRecording ? '🔴 Tap to stop' : '🎤 Tap to start recording'}
+            </p>
+            <p className="text-xs text-[#1F2A24]/40 mt-1">
+              {isRecording ? 'Recording... Speak clearly' : 'Supports Amharic and English'}
+            </p>
+
+            {isRecording && (
+              <button
+                onClick={stopRecording}
+                className="mt-4 text-xs text-red-500 hover:text-red-600 font-medium"
+              >
+                Cancel Recording
+              </button>
             )}
           </div>
 
-          <p className="mt-4 text-[13.5px] font-medium text-[#1F2A24]">
-            {isLoading ? 'Listening and extracting…' : isRecording ? 'Recording — tap to stop' : 'Tap the mic to start'}
-          </p>
-
-          <p className="mt-1 text-[12px] text-[#1F2A24]/40">
-            {isRecording
-              ? 'Describe the transaction, then tap the square to finish'
-              : 'Amharic and English both work'}
-          </p>
-
-          {error && (
-            <div className="mt-4 flex items-center gap-2 rounded-lg bg-[#C1442E]/10 px-3 py-2 text-[12.5px] font-medium text-[#C1442E]">
-              <AlertCircle size={14} className="shrink-0" />
-              {error}
+          {/* Previous Result */}
+          {lastResult && !isRecording && !showReview && (
+            <div className="mt-6 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-left">
+              <p className="text-xs text-emerald-600 font-medium">Last recorded</p>
+              <div className="flex items-center gap-2 mt-1">
+                <span className="font-medium text-[#1F2A24]">{lastResult.customerName}</span>
+                <span className="text-[#1F2A24]/30">•</span>
+                <span className="text-sm text-[#1F2A24]">{lastResult.product}</span>
+                <span className="text-[#1F2A24]/30">•</span>
+                <span className="font-bold text-emerald-600">{lastResult.amount} Br</span>
+                <span className={`text-xs px-1.5 py-0.5 rounded ${
+                  lastResult.type === 'credit' ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'
+                }`}>
+                  {lastResult.type === 'credit' ? 'Credit' : 'Paid'}
+                </span>
+              </div>
             </div>
           )}
-        </div>
-      </div>
-
-      {lastResult && (
-        <div className="rounded-2xl border border-[#0F6B4C]/15 bg-[#0F6B4C]/[0.05] p-4">
-          {lastResult.transcript && (
-            <div className="mb-2 flex items-start gap-2 text-[12.5px] text-[#1F2A24]/60">
-              <FileAudio size={14} className="mt-0.5 shrink-0 text-[#0F6B4C]" />
-              <span>"{lastResult.transcript}"</span>
-            </div>
-          )}
-          <p className="text-[13.5px] font-semibold text-[#1F2A24]">
-            {lastResult.customerName} · {lastResult.product}
-          </p>
-          <p className={`text-[13px] font-medium ${lastResult.type === 'credit' ? 'text-[#C1442E]' : 'text-[#0F6B4C]'}`}>
-            {lastResult.amount.toLocaleString()} Br · {lastResult.type === 'credit' ? 'On credit' : 'Paid'}
-          </p>
         </div>
       )}
 
-      <div className="rounded-2xl border border-[#E5A823]/25 bg-[#E5A823]/[0.08] p-4">
-        <h3 className="text-[13px] font-semibold text-[#B8860B]">Example phrases</h3>
-        <ul className="mt-1.5 list-inside list-disc space-y-1 text-[13px] text-[#1F2A24]/60">
-          {EXAMPLE_PHRASES.map((phrase) => (
-            <li key={phrase}>{phrase}</li>
-          ))}
+      {/* ─── PROCESSING VIEW ─────────────────────────────────────────── */}
+      {isProcessing && (
+        <div className="bg-white rounded-2xl border border-black/5 p-12 shadow-sm text-center">
+          <div className="flex flex-col items-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" />
+            <p className="mt-4 font-medium text-[#1F2A24]">Analyzing your voice...</p>
+            <p className="text-sm text-[#1F2A24]/40">AI is extracting the transaction</p>
+          </div>
+        </div>
+      )}
+
+      {/* ─── REVIEW SCREEN ───────────────────────────────────────────── */}
+      {showReview && reviewData && (
+        <div className="bg-white rounded-2xl border border-black/5 p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-4">
+            <AlertCircle className="text-emerald-600" size={20} />
+            <h3 className="font-bold text-[#1F2A24]">Review Transaction</h3>
+            <span className="text-xs text-[#1F2A24]/40 ml-auto">
+              {Math.round((reviewData.confidence || 0.85) * 100)}% confidence
+            </span>
+          </div>
+
+          {/* Transcript */}
+          <div className="bg-gray-50 rounded-xl p-4 mb-4">
+            <p className="text-xs text-[#1F2A24]/40 mb-1">📝 What we heard:</p>
+            <p className="text-sm text-[#1F2A24] font-medium">"{reviewData.transcript}"</p>
+          </div>
+
+          {/* Extracted Data */}
+          <div className="grid grid-cols-2 gap-3 mb-4">
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-[10px] text-[#1F2A24]/40">Customer</p>
+              <p className="font-medium text-[#1F2A24]">{reviewData.customerName}</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-[10px] text-[#1F2A24]/40">Product</p>
+              <p className="font-medium text-[#1F2A24]">{reviewData.product}</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-[10px] text-[#1F2A24]/40">Amount</p>
+              <p className="font-bold text-emerald-600">{reviewData.amount} Br</p>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3">
+              <p className="text-[10px] text-[#1F2A24]/40">Type</p>
+              <p className={`font-medium ${
+                reviewData.type === 'credit' ? 'text-red-600' : 'text-emerald-600'
+              }`}>
+                {reviewData.type === 'credit' ? '🔴 Credit (customer owes)' : '🟢 Paid'}
+              </p>
+            </div>
+          </div>
+
+          {/* Description */}
+          {reviewData.description && (
+            <div className="bg-gray-50 rounded-lg p-3 mb-4">
+              <p className="text-[10px] text-[#1F2A24]/40">Description</p>
+              <p className="text-sm text-[#1F2A24]">{reviewData.description}</p>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="grid grid-cols-3 gap-2">
+            <button
+              onClick={handleCancel}
+              disabled={isProcessing}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-black/10 text-[#1F2A24]/60 hover:bg-gray-50 transition disabled:opacity-50"
+            >
+              <X size={16} />
+              Cancel
+            </button>
+            <button
+              onClick={handleRetry}
+              disabled={isProcessing}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-black/10 text-blue-600 hover:bg-blue-50 transition disabled:opacity-50"
+            >
+              <RefreshCw size={16} />
+              Retry
+            </button>
+            <button
+              onClick={handleSubmit}
+              disabled={isProcessing}
+              className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition disabled:opacity-50"
+            >
+              <Check size={16} />
+              {isProcessing ? 'Saving...' : 'Submit'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Help Text */}
+      <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
+        <h3 className="font-medium text-purple-800 text-sm">💡 Example phrases</h3>
+        <ul className="text-sm text-purple-700 space-y-1 list-disc list-inside mt-1">
+          <li>"Kebede bought 2 bags of teff on credit for 16000"</li>
+          <li>"Almaz paid 500 Birr for coffee"</li>
+          <li>"Tadesse owes 3000 Birr for sugar"</li>
         </ul>
       </div>
     </div>
