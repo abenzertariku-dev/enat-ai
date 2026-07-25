@@ -30,7 +30,7 @@
 
 ## 📖 **Overview**
 
-**EthioGenz Ledger** is an AI-powered digital bookkeeping assistant designed specifically for Ethiopian micro and small businesses. Using only a smartphone, merchants can transform traditional paper bookkeeping ("Defter") into an intelligent digital ledger without learning complicated accounting software.
+**Enat-Ai** is an AI-powered digital bookkeeping assistant designed specifically for Ethiopian micro and small businesses. Using only a smartphone, merchants can transform traditional paper bookkeeping ("Defter") into an intelligent digital ledger without learning complicated accounting software.
 
 ### 🎯 **The Problem**
 
