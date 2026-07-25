@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart as RePieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts'
 import toast from 'react-hot-toast'
+import { useI18n } from '@/lib/i18n'
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -70,17 +71,17 @@ function StatCard({ icon: Icon, label, value, tone, suffix, trend, trendLabel, s
     purple: { bg: 'bg-white', text: 'text-[#7C3AED]', iconBg: 'bg-[#7C3AED]/10', border: 'hover:border-[#7C3AED]/20' },
     blue: { bg: 'bg-white', text: 'text-[#3B82F6]', iconBg: 'bg-[#3B82F6]/10', border: 'hover:border-[#3B82F6]/20' },
   }
-  const t = toneMap[tone]
+  const toneStyle = toneMap[tone]
 
   return (
-    <div className={`${t.bg} rounded-2xl border border-black/5 p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] ${t.border}`}>
+    <div className={`${toneStyle.bg} rounded-2xl border border-black/5 p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] ${toneStyle.border}`}>
       <div className="flex items-center justify-between">
         <span className="text-[12.5px] font-medium text-[#1F2A24]/50">{label}</span>
-        <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${t.iconBg}`}>
-          <Icon size={14} className={t.text} />
+        <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${toneStyle.iconBg}`}>
+          <Icon size={14} className={toneStyle.text} />
         </div>
       </div>
-      <p className={`mt-2 text-2xl font-bold tracking-tight ${t.text}`}>
+      <p className={`mt-2 text-2xl font-bold tracking-tight ${toneStyle.text}`}>
         {value}
         {suffix && <span className="ml-1 text-sm font-semibold text-[#1F2A24]/40">{suffix}</span>}
       </p>
@@ -101,6 +102,7 @@ function StatCard({ icon: Icon, label, value, tone, suffix, trend, trendLabel, s
 // ─── Main Component ────────────────────────────────────────────────────
 
 export default function BusinessInsights({ transactions, stats, onRefresh, isLoading, userName }: BusinessInsightsProps) {
+  const { t } = useI18n()
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'quarter'>('week')
   const [isGenerating, setIsGenerating] = useState(false)
   const [aiInsights, setAiInsights] = useState<string[]>([])
@@ -226,8 +228,8 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
     const paid = transactions.filter(t => t.status === 'paid').length
     const unpaid = transactions.filter(t => t.status === 'unpaid').length
     const paymentDistribution = [
-      { name: 'Paid', value: paid },
-      { name: 'Unpaid', value: unpaid }
+      { name: t('common.paid'), value: paid },
+      { name: t('common.unpaid'), value: unpaid }
     ]
 
     // Source distribution
@@ -292,7 +294,7 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
       totalTransactions: stats.totalTransactions,
       outstandingCustomers: stats.outstandingCustomers
     }
-  }, [transactions, stats, timeRange])
+  }, [transactions, stats, timeRange, t])
 
   // ─── AI Insights Generation ─────────────────────────────────────────
 
@@ -324,7 +326,7 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
         setAiInsights(data.insights || [])
         setGreeting(data.greeting || '')
         setBusinessProfile(data.businessProfile || null)
-        toast.success('✨ AI insights generated!')
+        toast.success(t('insights.aiGeneratedToast'))
       } else {
         setAiInsights([
           '💡 Your top performing product is generating the most revenue this month.',
@@ -343,7 +345,7 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
     } finally {
       setIsGenerating(false)
     }
-  }, [transactions, stats, insights])
+  }, [transactions, stats, insights, t])
 
   useEffect(() => {
     if (transactions.length > 0 && aiInsights.length === 0) {
@@ -355,38 +357,44 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
 
   const statCards = [
     {
-      label: 'Total Revenue',
+      label: t('insights.totalRevenue'),
       value: formatCurrency(stats.totalSales),
       icon: Wallet,
       tone: 'emerald',
       trend: getTrend(stats.totalSales, stats.totalSales * 0.9),
-      subtitle: `${insights.totalTransactions} transactions`
+      subtitle: t('insights.transactionsCount', { n: insights.totalTransactions })
     },
     {
-      label: 'Outstanding Debt',
+      label: t('insights.outstandingDebt'),
       value: formatCurrency(stats.totalDebt),
       icon: AlertTriangle,
       tone: 'brick',
       trend: getTrend(stats.totalDebt, stats.totalDebt * 0.85),
-      subtitle: `${insights.outstandingCustomers} customers`
+      subtitle: t('insights.customersCount', { n: insights.outstandingCustomers })
     },
     {
-      label: 'Collection Rate',
+      label: t('insights.collection'),
       value: `${Math.round(insights.collectionRate)}%`,
       icon: Percent,
       tone: 'blue',
       trend: { percentage: 5, direction: 'up' },
-      subtitle: `${formatCurrency(stats.totalSales)} collected`
+      subtitle: t('insights.collected', { n: formatCurrency(stats.totalSales) })
     },
     {
-      label: 'Avg Transaction',
+      label: t('insights.avgTransaction'),
       value: formatCurrency(insights.avgTransaction),
       icon: DollarSign,
       tone: 'purple',
       trend: { percentage: 8, direction: 'up' },
-      subtitle: `${insights.uniqueCustomers} customers`
+      subtitle: t('insights.customersCount', { n: insights.uniqueCustomers })
     }
   ]
+
+  const periodLabels: Record<'week' | 'month' | 'quarter', string> = {
+    week: t('insights.week'),
+    month: t('insights.month'),
+    quarter: t('insights.quarter'),
+  }
 
   // ─── Render ────────────────────────────────────────────────────────
 
@@ -397,21 +405,21 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
         <div>
           <h2 className="text-2xl font-bold text-[#1F2A24] flex items-center gap-2">
             <BarChart3 className="text-emerald-600" size={24} />
-            Business Insights
+            {t('insights.title')}
           </h2>
-          <p className="text-sm text-[#1F2A24]/50">AI-powered analytics for your business</p>
+          <p className="text-sm text-[#1F2A24]/50">{t('insights.subtitle')}</p>
         </div>
         <div className="flex items-center gap-3">
           <div className="flex rounded-lg border border-black/5 p-0.5">
-            {['week', 'month', 'quarter'].map((range) => (
+            {(['week', 'month', 'quarter'] as const).map((range) => (
               <button
                 key={range}
-                onClick={() => setTimeRange(range as any)}
+                onClick={() => setTimeRange(range)}
                 className={`px-3 py-1 text-[10px] font-medium rounded transition ${
                   timeRange === range ? 'bg-[#0F6B4C] text-white' : 'text-[#1F2A24]/50 hover:text-[#1F2A24]'
                 }`}
               >
-                {range.charAt(0).toUpperCase() + range.slice(1)}
+                {periodLabels[range]}
               </button>
             ))}
           </div>
@@ -478,22 +486,22 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="bg-white rounded-xl border border-black/5 p-3 shadow-sm text-center hover:shadow-md transition">
             <Building2 size={18} className="mx-auto text-emerald-600 mb-1" />
-            <p className="text-[10px] text-[#1F2A24]/40">Business Type</p>
+            <p className="text-[10px] text-[#1F2A24]/40">{t('insights.businessType')}</p>
             <p className="text-sm font-medium text-[#1F2A24] truncate">{businessProfile.type}</p>
           </div>
           <div className="bg-white rounded-xl border border-black/5 p-3 shadow-sm text-center hover:shadow-md transition">
             <UsersIcon size={18} className="mx-auto text-emerald-600 mb-1" />
-            <p className="text-[10px] text-[#1F2A24]/40">Team Size</p>
+            <p className="text-[10px] text-[#1F2A24]/40">{t('insights.teamSize')}</p>
             <p className="text-sm font-medium text-[#1F2A24] truncate">{businessProfile.teamSize}</p>
           </div>
           <div className="bg-white rounded-xl border border-black/5 p-3 shadow-sm text-center hover:shadow-md transition">
             <MapPin size={18} className="mx-auto text-emerald-600 mb-1" />
-            <p className="text-[10px] text-[#1F2A24]/40">Location</p>
+            <p className="text-[10px] text-[#1F2A24]/40">{t('insights.location')}</p>
             <p className="text-sm font-medium text-[#1F2A24] truncate">{businessProfile.location}</p>
           </div>
           <div className="bg-white rounded-xl border border-black/5 p-3 shadow-sm text-center hover:shadow-md transition">
             <AlertCircle size={18} className="mx-auto text-emerald-600 mb-1" />
-            <p className="text-[10px] text-[#1F2A24]/40">Main Challenge</p>
+            <p className="text-[10px] text-[#1F2A24]/40">{t('insights.mainChallenge')}</p>
             <p className="text-sm font-medium text-[#1F2A24] truncate">{businessProfile.challenge}</p>
           </div>
         </div>
@@ -522,9 +530,9 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-2">
                 <Sparkles size={16} className="text-emerald-600" />
-                <h3 className="font-semibold text-emerald-800 text-sm">AI-Generated Insights</h3>
+                <h3 className="font-semibold text-emerald-800 text-sm">{t('insights.aiGenerated')}</h3>
                 {isGenerating && (
-                  <span className="text-xs text-emerald-600 animate-pulse">Generating...</span>
+                  <span className="text-xs text-emerald-600 animate-pulse">{t('insights.generating')}</span>
                 )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -552,7 +560,7 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
         <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm hover:shadow-md transition">
           <h4 className="text-sm font-semibold text-[#1F2A24] mb-3 flex items-center gap-2">
             <TrendingUp size={16} className="text-emerald-600" />
-            Sales & Debt Trend
+            {t('insights.salesDebtTrend')}
           </h4>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
@@ -562,8 +570,8 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
                 <YAxis tick={{ fontSize: 10 }} tickLine={false} />
                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
                 <Legend verticalAlign="top" height={20} />
-                <Line type="monotone" dataKey="sales" stroke="#0F6B4C" strokeWidth={2} dot={false} name="Sales" />
-                <Line type="monotone" dataKey="debt" stroke="#C1442E" strokeWidth={2} dot={false} strokeDasharray="5 5" name="Debt" />
+                <Line type="monotone" dataKey="sales" stroke="#0F6B4C" strokeWidth={2} dot={false} name={t('insights.sales')} />
+                <Line type="monotone" dataKey="debt" stroke="#C1442E" strokeWidth={2} dot={false} strokeDasharray="5 5" name={t('insights.debtLabel')} />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -573,7 +581,7 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
         <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm hover:shadow-md transition">
           <h4 className="text-sm font-semibold text-[#1F2A24] mb-3 flex items-center gap-2">
             <Award size={16} className="text-emerald-600" />
-            Top Products
+            {t('insights.topProducts')}
           </h4>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
@@ -591,7 +599,7 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
         <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm hover:shadow-md transition">
           <h4 className="text-sm font-semibold text-[#1F2A24] mb-3 flex items-center gap-2">
             <PieChart size={16} className="text-emerald-600" />
-            Payment Status
+            {t('insights.paymentStatus')}
           </h4>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
@@ -620,7 +628,7 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
         <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm hover:shadow-md transition">
           <h4 className="text-sm font-semibold text-[#1F2A24] mb-3 flex items-center gap-2">
             <Users size={16} className="text-emerald-600" />
-            Top Customers
+            {t('insights.topCustomers')}
           </h4>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
@@ -638,7 +646,7 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
         <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm hover:shadow-md transition lg:col-span-2">
           <h4 className="text-sm font-semibold text-[#1F2A24] mb-3 flex items-center gap-2">
             <Calendar size={16} className="text-emerald-600" />
-            Monthly Performance
+            {t('insights.monthlyPerformance')}
           </h4>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
@@ -647,8 +655,8 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
                 <YAxis tick={{ fontSize: 10 }} tickLine={false} />
                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
                 <Legend verticalAlign="top" height={20} />
-                <Bar dataKey="sales" fill="#0F6B4C" radius={[4, 4, 0, 0]} name="Sales" />
-                <Bar dataKey="debt" fill="#C1442E" radius={[4, 4, 0, 0]} name="Debt" />
+                <Bar dataKey="sales" fill="#0F6B4C" radius={[4, 4, 0, 0]} name={t('insights.sales')} />
+                <Bar dataKey="debt" fill="#C1442E" radius={[4, 4, 0, 0]} name={t('insights.debtLabel')} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -659,41 +667,41 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         <button className="bg-white rounded-2xl border border-black/5 p-4 text-center hover:shadow-md transition group">
           <FileText size={20} className="mx-auto text-emerald-600 group-hover:scale-110 transition" />
-          <p className="text-xs text-[#1F2A24]/60 mt-1">Export Report</p>
+          <p className="text-xs text-[#1F2A24]/60 mt-1">{t('insights.export')}</p>
         </button>
         <button className="bg-white rounded-2xl border border-black/5 p-4 text-center hover:shadow-md transition group">
           <Target size={20} className="mx-auto text-emerald-600 group-hover:scale-110 transition" />
-          <p className="text-xs text-[#1F2A24]/60 mt-1">Set Goals</p>
+          <p className="text-xs text-[#1F2A24]/60 mt-1">{t('insights.setGoals')}</p>
         </button>
         <button onClick={generateAiInsights} className="bg-white rounded-2xl border border-black/5 p-4 text-center hover:shadow-md transition group">
           <Sparkles size={20} className="mx-auto text-emerald-600 group-hover:scale-110 transition" />
-          <p className="text-xs text-[#1F2A24]/60 mt-1">Refresh AI</p>
+          <p className="text-xs text-[#1F2A24]/60 mt-1">{t('insights.refresh')}</p>
         </button>
         <button className="bg-white rounded-2xl border border-black/5 p-4 text-center hover:shadow-md transition group">
           <Download size={20} className="mx-auto text-emerald-600 group-hover:scale-110 transition" />
-          <p className="text-xs text-[#1F2A24]/60 mt-1">Download</p>
+          <p className="text-xs text-[#1F2A24]/60 mt-1">{t('insights.download')}</p>
         </button>
       </div>
 
       {/* ─── KEY METRICS SUMMARY ──────────────────────────────────────── */}
       <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm">
-        <h4 className="text-sm font-semibold text-[#1F2A24] mb-3">Key Metrics Summary</h4>
+        <h4 className="text-sm font-semibold text-[#1F2A24] mb-3">{t('insights.keyMetrics')}</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="text-center">
             <p className="text-2xl font-bold text-[#1F2A24]">{insights.totalTransactions}</p>
-            <p className="text-[10px] text-[#1F2A24]/40">Total Transactions</p>
+            <p className="text-[10px] text-[#1F2A24]/40">{t('insights.totalTransactions')}</p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-emerald-600">{insights.uniqueCustomers}</p>
-            <p className="text-[10px] text-[#1F2A24]/40">Unique Customers</p>
+            <p className="text-[10px] text-[#1F2A24]/40">{t('insights.uniqueCustomers')}</p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-purple-600">{insights.topProducts.length}</p>
-            <p className="text-[10px] text-[#1F2A24]/40">Top Products</p>
+            <p className="text-[10px] text-[#1F2A24]/40">{t('insights.topProductsCount')}</p>
           </div>
           <div className="text-center">
             <p className="text-2xl font-bold text-blue-600">{Math.round(insights.collectionRate)}%</p>
-            <p className="text-[10px] text-[#1F2A24]/40">Collection Rate</p>
+            <p className="text-[10px] text-[#1F2A24]/40">{t('insights.collection')}</p>
           </div>
         </div>
       </div>

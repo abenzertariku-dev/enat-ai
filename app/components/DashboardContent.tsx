@@ -42,6 +42,7 @@ import {
   LineChart,
   Line,
 } from 'recharts'
+import { useI18n } from '@/lib/i18n'
 
 // ─── Types ──────────────────────────────────────────────────────────────
 
@@ -104,20 +105,20 @@ const COLORS = {
 
 const CHART_COLORS = [COLORS.emerald, COLORS.gold, COLORS.brick, COLORS.sage, COLORS.terracotta]
 
-const STATUS_FILTERS = {
-  all: 'All',
-  paid: 'Paid',
-  unpaid: 'Unpaid',
+const STATUS_FILTER_KEYS = {
+  all: 'common.all',
+  paid: 'common.paid',
+  unpaid: 'common.unpaid',
 } as const
 
-const SOURCE_BADGES: Record<string, { label: string; className: string }> = {
-  voice: { label: '🎙️ Voice', className: 'bg-purple-100 text-purple-700' },
-  scan: { label: '📸 Scan', className: 'bg-orange-100 text-orange-700' },
-  stock_in: { label: '📦 Stock In', className: 'bg-emerald-100 text-emerald-700' },
-  stock_out: { label: '🛒 Sale', className: 'bg-blue-100 text-blue-700' },
+const SOURCE_BADGE_KEYS: Record<string, { labelKey: string; emoji: string; className: string }> = {
+  voice: { labelKey: 'nav.voice', emoji: '🎙️', className: 'bg-purple-100 text-purple-700' },
+  scan: { labelKey: 'nav.scan', emoji: '📸', className: 'bg-orange-100 text-orange-700' },
+  stock_in: { labelKey: 'stock.import', emoji: '📦', className: 'bg-emerald-100 text-emerald-700' },
+  stock_out: { labelKey: 'common.sales', emoji: '🛒', className: 'bg-blue-100 text-blue-700' },
 }
 
-type StatusFilter = keyof typeof STATUS_FILTERS
+type StatusFilter = keyof typeof STATUS_FILTER_KEYS
 
 // ─── Sub-Components ────────────────────────────────────────────────────
 
@@ -224,6 +225,8 @@ export default function DashboardContent({
   isLoading,
   isRefreshing = false,
 }: DashboardContentProps) {
+  const { t, locale } = useI18n()
+
   // ─── State ──────────────────────────────────────────────────────────
 
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all')
@@ -242,8 +245,8 @@ export default function DashboardContent({
 
   // #region agent log
   useEffect(() => {
-    fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'i18n-pre',hypothesisId:'A',location:'DashboardContent.tsx:mount',message:'DashboardContent render — hardcoded EN?',data:{usesI18n:false,docLang:typeof document!=='undefined'?document.documentElement.lang:'?',hardcodedLabel:"Today's Sales"},timestamp:Date.now()})}).catch(()=>{});
-  }, [])
+    fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'post-fix',hypothesisId:'A',location:'DashboardContent.tsx:mount',message:'DashboardContent render — hardcoded EN?',data:{usesI18n:true,locale,docLang:typeof document!=='undefined'?document.documentElement.lang:'?',hardcodedLabel:t('dash.todaySales')},timestamp:Date.now()})}).catch(()=>{});
+  }, [locale, t])
   // #endregion
 
   const submitTransaction = async (e: React.FormEvent) => {
@@ -288,11 +291,11 @@ export default function DashboardContent({
         count: 0,
       })
     }
-    transactions.forEach((t) => {
-      const key = new Date(t.date).toDateString()
+    transactions.forEach((tx) => {
+      const key = new Date(tx.date).toDateString()
       const day = result.find((d) => d.key === key)
       if (day) {
-        day.sales += t.amount
+        day.sales += tx.amount
         day.count += 1
       }
     })
@@ -306,10 +309,10 @@ export default function DashboardContent({
     }
     const map = new Map<string, number>()
     transactions
-      .filter((t) => t.status === 'unpaid' && t.customer)
-      .forEach((t) => {
-        if (t.customer) {
-          map.set(t.customer.name, (map.get(t.customer.name) || 0) + t.amount)
+      .filter((tx) => tx.status === 'unpaid' && tx.customer)
+      .forEach((tx) => {
+        if (tx.customer) {
+          map.set(tx.customer.name, (map.get(tx.customer.name) || 0) + tx.amount)
         }
       })
     return Array.from(map.entries())
@@ -320,33 +323,34 @@ export default function DashboardContent({
 
   // 3. Payment distribution
   const paymentDistribution = useMemo(() => {
-    const paid = transactions.filter((t) => t.status === 'paid').length
-    const unpaid = transactions.filter((t) => t.status === 'unpaid').length
+    const paid = transactions.filter((tx) => tx.status === 'paid').length
+    const unpaid = transactions.filter((tx) => tx.status === 'unpaid').length
     return [
-      { name: 'Paid', value: paid },
-      { name: 'Unpaid', value: unpaid },
+      { name: t('common.paid'), value: paid },
+      { name: t('common.unpaid'), value: unpaid },
     ]
-  }, [transactions])
+  }, [transactions, t])
 
   // 4. Source distribution (where transactions come from)
   const sourceDistribution = useMemo(() => {
     const sources: Record<string, number> = {}
-    transactions.forEach((t) => {
-      const source = t.source || 'unknown'
+    transactions.forEach((tx) => {
+      const source = tx.source || 'unknown'
       sources[source] = (sources[source] || 0) + 1
     })
-    return Object.entries(sources).map(([name, value]) => ({
-      name: SOURCE_BADGES[name]?.label || name,
-      value,
-    }))
-  }, [transactions])
+    return Object.entries(sources).map(([name, value]) => {
+      const badge = SOURCE_BADGE_KEYS[name]
+      const label = badge ? `${badge.emoji} ${t(badge.labelKey)}` : name
+      return { name: label, value }
+    })
+  }, [transactions, t])
 
   // 5. Filtered transactions (safe null handling)
   const filteredTransactions = useMemo(() => {
-    return transactions.filter((t) => {
-      const matchesStatus = statusFilter === 'all' || t.status === statusFilter
-      const customerName = t.customer?.name?.toLowerCase() || ''
-      const productName = t.product?.toLowerCase() || ''
+    return transactions.filter((tx) => {
+      const matchesStatus = statusFilter === 'all' || tx.status === statusFilter
+      const customerName = tx.customer?.name?.toLowerCase() || ''
+      const productName = tx.product?.toLowerCase() || ''
       const matchesSearch =
         searchQuery === '' ||
         customerName.includes(searchQuery.toLowerCase()) ||
@@ -367,7 +371,7 @@ export default function DashboardContent({
 
   // 7. Stock alerts count
   const stockAlertCount = useMemo(() => {
-    return transactions.filter(t => t.source === 'stock_out' || t.source === 'stock_in').length
+    return transactions.filter((tx) => tx.source === 'stock_out' || tx.source === 'stock_in').length
   }, [transactions])
 
   // ─── Handlers ──────────────────────────────────────────────────────
@@ -384,34 +388,34 @@ export default function DashboardContent({
       <div className="grid grid-cols-2 gap-3">
         <StatCard
           icon={Wallet}
-          label="Today's Sales"
+          label={t('dash.todaySales')}
           tone="emerald"
           value={`${stats.totalSales.toLocaleString()}`}
           suffix="Br"
           trend={trendDelta}
-          trendLabel="vs last week"
+          trendLabel={t('dash.vsLastWeek')}
         />
         <StatCard
           icon={Clock}
-          label="Outstanding"
+          label={t('dash.outstanding')}
           tone="brick"
           value={`${stats.totalDebt.toLocaleString()}`}
           suffix="Br"
-          subtitle={`${transactions.filter(t => t.status === 'unpaid').length} unpaid`}
+          subtitle={t('dash.unpaidCount', { n: transactions.filter((tx) => tx.status === 'unpaid').length })}
         />
         <StatCard
           icon={Users}
-          label="Customers"
+          label={t('dash.customers')}
           tone="gold"
           value={`${stats.outstandingCustomers}`}
-          subtitle={`${topCustomers.length} with debt`}
+          subtitle={`${topCustomers.length} ${t('customers.withDebt')}`}
         />
         <StatCard
           icon={BarChart3}
-          label="Transactions"
+          label={t('dash.transactions')}
           tone="purple"
           value={`${stats.totalTransactions}`}
-          subtitle={`${stockAlertCount} stock movements`}
+          subtitle={`${stockAlertCount} ${t('nav.stock')}`}
         />
       </div>
 
@@ -420,7 +424,7 @@ export default function DashboardContent({
         <div className="flex items-start justify-between">
           <div>
             <h2 className="text-[13px] font-semibold text-[#1F2A24]/70">
-              Sales, {timeRange === 'week' ? 'last 7 days' : 'last 30 days'}
+              {t('dash.salesTrend')}, {timeRange === 'week' ? t('dash.last7') : t('dash.last30')}
             </h2>
             <p className="mt-0.5 text-xl font-bold tracking-tight text-[#1F2A24]">
               {weekTotal.toLocaleString()}{' '}
@@ -435,7 +439,7 @@ export default function DashboardContent({
                   timeRange === 'week' ? 'bg-[#0F6B4C] text-white' : 'text-[#1F2A24]/50 hover:text-[#1F2A24]'
                 }`}
               >
-                Week
+                {t('insights.week')}
               </button>
               <button
                 onClick={() => setTimeRange('month')}
@@ -443,7 +447,7 @@ export default function DashboardContent({
                   timeRange === 'month' ? 'bg-[#0F6B4C] text-white' : 'text-[#1F2A24]/50 hover:text-[#1F2A24]'
                 }`}
               >
-                Month
+                {t('insights.month')}
               </button>
             </div>
             <span
@@ -492,7 +496,7 @@ export default function DashboardContent({
                   fontSize: 12,
                   boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
                 }}
-                formatter={(value) => [`${Number(value).toLocaleString()} Br`, 'Sales']}
+                formatter={(value) => [`${Number(value).toLocaleString()} Br`, t('common.sales')]}
               />
               <Area
                 type="monotone"
@@ -514,7 +518,7 @@ export default function DashboardContent({
           <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <h2 className="text-[13px] font-semibold text-[#1F2A24]/70 flex items-center gap-1">
               <AlertTriangle size={14} className="text-[#C1442E]" />
-              Top debtors
+              {t('dash.topDebtors')}
             </h2>
             <div className="mt-3 h-40">
               <ResponsiveContainer width="100%" height="100%">
@@ -524,7 +528,7 @@ export default function DashboardContent({
                   <Tooltip
                     cursor={{ fill: 'rgba(193,68,46,0.06)' }}
                     contentStyle={{ borderRadius: 10, border: '1px solid rgba(0,0,0,0.06)', fontSize: 12 }}
-                    formatter={(value) => [`${Number(value).toLocaleString()} Br`, 'Owed']}
+                    formatter={(value) => [`${Number(value).toLocaleString()} Br`, t('dash.owed')]}
                   />
                   <Bar dataKey="amount" fill={COLORS.brick} radius={[0, 6, 6, 0]} barSize={12} />
                 </BarChart>
@@ -538,7 +542,7 @@ export default function DashboardContent({
           <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <h2 className="text-[13px] font-semibold text-[#1F2A24]/70 flex items-center gap-1">
               <CheckCircle size={14} className="text-[#0F6B4C]" />
-              Payment status
+              {t('dash.paymentStatus')}
             </h2>
             <div className="mt-1 h-40">
               <ResponsiveContainer width="100%" height="100%">
@@ -556,7 +560,7 @@ export default function DashboardContent({
                       <Cell key={entry.name} fill={index === 0 ? COLORS.emerald : COLORS.brick} stroke="white" strokeWidth={2} />
                     ))}
                   </Pie>
-                  <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid rgba(0,0,0,0.06)', fontSize: 12 }} formatter={(value) => [`${value} transactions`, '']} />
+                  <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid rgba(0,0,0,0.06)', fontSize: 12 }} formatter={(value) => [`${value} ${t('dash.transactions').toLowerCase()}`, '']} />
                   <Legend verticalAlign="bottom" height={24} iconType="circle" iconSize={8} formatter={(value) => <span className="text-[11px] text-[#1F2A24]/60">{value}</span>} />
                 </PieChart>
               </ResponsiveContainer>
@@ -569,7 +573,7 @@ export default function DashboardContent({
           <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
             <h2 className="text-[13px] font-semibold text-[#1F2A24]/70 flex items-center gap-1">
               <BarChart3 size={14} className="text-[#7C3AED]" />
-              Transaction sources
+              {t('dash.sources')}
             </h2>
             <div className="mt-1 h-40">
               <ResponsiveContainer width="100%" height="100%">
@@ -587,7 +591,7 @@ export default function DashboardContent({
                       <Cell key={entry.name} fill={CHART_COLORS[index % CHART_COLORS.length]} stroke="white" strokeWidth={2} />
                     ))}
                   </Pie>
-                  <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid rgba(0,0,0,0.06)', fontSize: 12 }} formatter={(value) => [`${value} transactions`, '']} />
+                  <Tooltip contentStyle={{ borderRadius: 10, border: '1px solid rgba(0,0,0,0.06)', fontSize: 12 }} formatter={(value) => [`${value} ${t('dash.transactions').toLowerCase()}`, '']} />
                   <Legend verticalAlign="bottom" height={24} iconType="circle" iconSize={8} formatter={(value) => <span className="text-[11px] text-[#1F2A24]/60">{value}</span>} />
                 </PieChart>
               </ResponsiveContainer>
@@ -603,47 +607,47 @@ export default function DashboardContent({
         className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0F6B4C] p-3 font-medium text-white transition hover:bg-[#0B5A3F] disabled:opacity-50"
       >
         <Zap size={16} />
-        {isLoading ? 'Saving…' : 'Add transaction'}
+        {isLoading ? t('common.saving') : t('dash.addTx')}
       </button>
 
       {showAddForm && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
             <div className="mb-4 flex items-center justify-between">
-              <h3 className="text-lg font-bold text-[#1F2A24]">Add transaction</h3>
+              <h3 className="text-lg font-bold text-[#1F2A24]">{t('dash.addTx')}</h3>
               <button
                 type="button"
                 onClick={() => setShowAddForm(false)}
                 className="rounded-lg p-1.5 text-[#1F2A24]/50 hover:bg-black/5"
-                aria-label="Close"
+                aria-label={t('common.close')}
               >
                 <X size={18} />
               </button>
             </div>
             <form onSubmit={submitTransaction} className="space-y-3">
               <div>
-                <label className="mb-1 block text-[12px] font-medium text-[#1F2A24]/60">Customer name</label>
+                <label className="mb-1 block text-[12px] font-medium text-[#1F2A24]/60">{t('dash.customerName')}</label>
                 <input
                   required
                   value={form.customerName}
                   onChange={(e) => setForm((f) => ({ ...f, customerName: e.target.value }))}
                   className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0F6B4C]/30"
-                  placeholder="Customer name"
+                  placeholder={t('dash.customerName')}
                 />
               </div>
               <div>
-                <label className="mb-1 block text-[12px] font-medium text-[#1F2A24]/60">Product</label>
+                <label className="mb-1 block text-[12px] font-medium text-[#1F2A24]/60">{t('dash.product')}</label>
                 <input
                   required
                   value={form.product}
                   onChange={(e) => setForm((f) => ({ ...f, product: e.target.value }))}
                   className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0F6B4C]/30"
-                  placeholder="Product or item"
+                  placeholder={t('dash.productPlaceholder')}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-[12px] font-medium text-[#1F2A24]/60">Amount (Br)</label>
+                  <label className="mb-1 block text-[12px] font-medium text-[#1F2A24]/60">{t('dash.amount')}</label>
                   <input
                     required
                     type="number"
@@ -656,7 +660,7 @@ export default function DashboardContent({
                   />
                 </div>
                 <div>
-                  <label className="mb-1 block text-[12px] font-medium text-[#1F2A24]/60">Quantity</label>
+                  <label className="mb-1 block text-[12px] font-medium text-[#1F2A24]/60">{t('dash.quantity')}</label>
                   <input
                     type="number"
                     min="0.01"
@@ -669,7 +673,7 @@ export default function DashboardContent({
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="mb-1 block text-[12px] font-medium text-[#1F2A24]/60">Type</label>
+                  <label className="mb-1 block text-[12px] font-medium text-[#1F2A24]/60">{t('dash.type')}</label>
                   <select
                     value={form.type}
                     onChange={(e) => {
@@ -682,19 +686,19 @@ export default function DashboardContent({
                     }}
                     className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0F6B4C]/30"
                   >
-                    <option value="credit">Credit (sale / debt)</option>
-                    <option value="debit">Debit (payment received)</option>
+                    <option value="credit">{t('dash.creditOption')}</option>
+                    <option value="debit">{t('dash.debitOption')}</option>
                   </select>
                 </div>
                 <div>
-                  <label className="mb-1 block text-[12px] font-medium text-[#1F2A24]/60">Status</label>
+                  <label className="mb-1 block text-[12px] font-medium text-[#1F2A24]/60">{t('dash.status')}</label>
                   <select
                     value={form.status}
                     onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as 'paid' | 'unpaid' }))}
                     className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0F6B4C]/30"
                   >
-                    <option value="unpaid">Unpaid</option>
-                    <option value="paid">Paid</option>
+                    <option value="unpaid">{t('common.unpaid')}</option>
+                    <option value="paid">{t('common.paid')}</option>
                   </select>
                 </div>
               </div>
@@ -704,14 +708,14 @@ export default function DashboardContent({
                   onClick={() => setShowAddForm(false)}
                   className="flex-1 rounded-xl border border-black/10 py-2.5 text-sm font-medium text-[#1F2A24]/60 hover:bg-gray-50"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   disabled={isLoading}
                   className="flex-1 rounded-xl bg-[#0F6B4C] py-2.5 text-sm font-medium text-white hover:bg-[#0B5A3F] disabled:opacity-50"
                 >
-                  {isLoading ? 'Saving…' : 'Save'}
+                  {isLoading ? t('common.saving') : t('common.save')}
                 </button>
               </div>
             </form>
@@ -723,9 +727,9 @@ export default function DashboardContent({
       <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h2 className="text-[13.5px] font-semibold text-[#1F2A24] flex items-center gap-2">
-            Recent transactions
+            {t('dash.recent')}
             <span className="text-[10px] font-normal text-[#1F2A24]/30">
-              {filteredTransactions.length} of {transactions.length}
+              {t('dash.of', { a: filteredTransactions.length, b: transactions.length })}
             </span>
           </h2>
 
@@ -734,7 +738,7 @@ export default function DashboardContent({
               <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[#1F2A24]/30" />
               <input
                 type="text"
-                placeholder="Search…"
+                placeholder={t('common.search')}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-32 rounded-lg border border-black/5 bg-[#FBF9F5] py-1.5 pl-8 pr-7 text-[12px] focus:border-[#0F6B4C]/30 focus:outline-none focus:ring-1 focus:ring-[#0F6B4C]/20"
@@ -757,7 +761,7 @@ export default function DashboardContent({
                 }`}
               >
                 <Filter size={12} />
-                {statusFilter !== 'all' ? STATUS_FILTERS[statusFilter] : 'Filter'}
+                {statusFilter !== 'all' ? t(STATUS_FILTER_KEYS[statusFilter]) : t('common.filter')}
                 <ChevronDown size={10} />
               </button>
 
@@ -765,7 +769,7 @@ export default function DashboardContent({
                 <>
                   <div className="fixed inset-0 z-10" onClick={() => setShowFilters(false)} />
                   <div className="absolute right-0 top-full z-20 mt-1 min-w-[100px] rounded-lg border border-black/5 bg-white p-1 shadow-[0_4px_16px_rgba(0,0,0,0.08)]">
-                    {Object.entries(STATUS_FILTERS).map(([key, label]) => (
+                    {Object.entries(STATUS_FILTER_KEYS).map(([key, labelKey]) => (
                       <button
                         key={key}
                         onClick={() => { setStatusFilter(key as StatusFilter); setShowFilters(false) }}
@@ -773,7 +777,7 @@ export default function DashboardContent({
                           statusFilter === key ? 'bg-[#0F6B4C]/10 text-[#0F6B4C]' : 'text-[#1F2A24]/60 hover:bg-[#FBF9F5]'
                         }`}
                       >
-                        {label}
+                        {t(labelKey)}
                       </button>
                     ))}
                   </div>
@@ -788,23 +792,26 @@ export default function DashboardContent({
           {filteredTransactions.length === 0 ? (
             <div className="py-10 text-center text-[#1F2A24]/35">
               <Inbox size={30} className="mx-auto mb-2" />
-              <p className="text-[13.5px] font-medium text-[#1F2A24]/60">No transactions yet</p>
-              <p className="text-[12px]">Add one using Scan or Voice.</p>
+              <p className="text-[13.5px] font-medium text-[#1F2A24]/60">{t('dash.noTx')}</p>
+              <p className="text-[12px]">{t('dash.noTxHint')}</p>
             </div>
           ) : (
-            filteredTransactions.map((t) => {
-              const isStock = t.source === 'stock_in' || t.source === 'stock_out'
-              const sourceBadge = t.source ? SOURCE_BADGES[t.source] : null
+            filteredTransactions.map((tx) => {
+              const isStock = tx.source === 'stock_in' || tx.source === 'stock_out'
+              const sourceBadgeKey = tx.source ? SOURCE_BADGE_KEYS[tx.source] : null
+              const sourceBadge = sourceBadgeKey
+                ? { label: `${sourceBadgeKey.emoji} ${t(sourceBadgeKey.labelKey)}`, className: sourceBadgeKey.className }
+                : null
 
               return (
                 <div
-                  key={t.id}
+                  key={tx.id}
                   className="flex items-center justify-between rounded-xl bg-[#FBF9F5] p-3 transition hover:bg-[#F3EFE6]"
                 >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="truncate text-[13.5px] font-semibold text-[#1F2A24]">
-                        {isStock ? '📦 Stock System' : (t.customer?.name || 'Unknown')}
+                        {isStock ? t('dash.stockSystem') : (tx.customer?.name || t('common.unknown'))}
                       </p>
                       {sourceBadge && (
                         <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded ${sourceBadge.className}`}>
@@ -813,33 +820,33 @@ export default function DashboardContent({
                       )}
                     </div>
                     <div className="flex items-center gap-2 text-[12px] text-[#1F2A24]/45">
-                      <span className="truncate">{t.product}</span>
+                      <span className="truncate">{tx.product}</span>
                       <span className="h-0.5 w-0.5 rounded-full bg-[#1F2A24]/25" />
-                      <span>{new Date(t.date).toLocaleDateString()}</span>
-                      {t.description && (
+                      <span>{new Date(tx.date).toLocaleDateString()}</span>
+                      {tx.description && (
                         <>
                           <span className="h-0.5 w-0.5 rounded-full bg-[#1F2A24]/25" />
-                          <span className="truncate text-[#1F2A24]/30">{t.description}</span>
+                          <span className="truncate text-[#1F2A24]/30">{tx.description}</span>
                         </>
                       )}
                     </div>
                   </div>
                   <div className="ml-2 flex-shrink-0 text-right">
-                    <p className={`font-bold ${t.status === 'unpaid' ? 'text-[#C1442E]' : 'text-[#0F6B4C]'}`}>
-                      {t.amount.toLocaleString()} Br
+                    <p className={`font-bold ${tx.status === 'unpaid' ? 'text-[#C1442E]' : 'text-[#0F6B4C]'}`}>
+                      {tx.amount.toLocaleString()} Br
                     </p>
                     <div className="mt-0.5 flex items-center justify-end gap-1.5">
                       <span className={`rounded px-1.5 py-0.5 text-[10.5px] font-semibold ${
-                        t.status === 'unpaid' ? 'bg-[#C1442E]/10 text-[#C1442E]' : 'bg-[#0F6B4C]/10 text-[#0F6B4C]'
+                        tx.status === 'unpaid' ? 'bg-[#C1442E]/10 text-[#C1442E]' : 'bg-[#0F6B4C]/10 text-[#0F6B4C]'
                       }`}>
-                        {t.status === 'unpaid' ? 'Unpaid' : 'Paid'}
+                        {tx.status === 'unpaid' ? t('common.unpaid') : t('common.paid')}
                       </span>
-                      {t.status === 'unpaid' && !isStock && (
+                      {tx.status === 'unpaid' && !isStock && (
                         <button
-                          onClick={() => handleMarkAsPaid(t.id)}
+                          onClick={() => handleMarkAsPaid(tx.id)}
                           className="rounded bg-[#1F2A24]/8 px-2 py-0.5 text-[10.5px] font-semibold text-[#1F2A24]/70 transition hover:bg-[#1F2A24]/15"
                         >
-                          Mark paid
+                          {t('tx.markPaid')}
                         </button>
                       )}
                     </div>
@@ -852,8 +859,8 @@ export default function DashboardContent({
 
         {filteredTransactions.length > 0 && (
           <div className="mt-3 border-t border-black/5 pt-2.5 text-center text-[11px] text-[#1F2A24]/30">
-            Showing {filteredTransactions.length} of {transactions.length} transactions
-            {statusFilter !== 'all' && ` (filtered: ${STATUS_FILTERS[statusFilter]})`}
+            {t('dash.of', { a: filteredTransactions.length, b: transactions.length })}
+            {statusFilter !== 'all' && ` (${t(STATUS_FILTER_KEYS[statusFilter])})`}
           </div>
         )}
       </div>

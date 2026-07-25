@@ -11,6 +11,7 @@ import {
   CheckCheck,
   Sparkles,
 } from 'lucide-react'
+import { useI18n } from '@/lib/i18n'
 
 interface Alert {
   id: string
@@ -34,6 +35,7 @@ const DISPLAY_LIMIT = 5
 export default function StockAlertWidget({
   onViewAll,
 }: StockAlertWidgetProps) {
+  const { t } = useI18n()
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [dismissedIds, setDismissedIds] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
@@ -105,10 +107,10 @@ export default function StockAlertWidget({
           </div>
           <div>
             <p className="text-[13.5px] font-semibold text-[#1F2A24]">
-              Stock status
+              {t('stock.status')}
             </p>
             <p className="text-[12px] text-[#1F2A24]/50">
-              Everything is well stocked
+              {t('stock.wellStocked')}
             </p>
           </div>
         </div>
@@ -160,13 +162,13 @@ export default function StockAlertWidget({
 
           <div>
             <p className="text-[13.5px] font-semibold text-[#1F2A24]">
-              Stock alerts
+              {t('stock.alertsHeader')}
             </p>
 
             <p className="text-[11.5px] text-[#1F2A24]/50">
               {critical.length > 0 && (
                 <span className="font-medium text-[#C1442E]">
-                  {critical.length} out of stock
+                  {t('stock.outOfStockCount', { n: critical.length })}
                 </span>
               )}
 
@@ -180,7 +182,7 @@ export default function StockAlertWidget({
                       : 'font-medium text-[#B8860B]'
                   }
                 >
-                  {warning.length} running low
+                  {t('stock.runningLowCount', { n: warning.length })}
                 </span>
               )}
             </p>
@@ -193,7 +195,7 @@ export default function StockAlertWidget({
           }
           className="flex items-center gap-0.5 text-[12px] font-medium text-[#0F6B4C] hover:text-[#0B5A3F]"
         >
-          View all
+          {t('stock.viewAll')}
           <ChevronRight size={13} />
         </button>
       </div>
@@ -201,7 +203,7 @@ export default function StockAlertWidget({
       <div className="space-y-1.5">
         {visibleCritical.length > 0 && (
           <p className="px-0.5 pb-0.5 pt-1 text-[10.5px] font-semibold uppercase tracking-wide text-[#C1442E]/70">
-            Out of stock
+            {t('stock.outOfStock')}
           </p>
         )}
 
@@ -225,7 +227,7 @@ export default function StockAlertWidget({
                 {alert.stockItem.name}
               </p>
               <p className="text-[11px] text-[#C1442E]/80">
-                Restock as soon as possible
+                {t('stock.restockSoon')}
               </p>
             </div>
 
@@ -240,7 +242,7 @@ export default function StockAlertWidget({
 
         {visibleWarning.length > 0 && (
           <p className="px-0.5 pb-0.5 pt-2 text-[10.5px] font-semibold uppercase tracking-wide text-[#B8860B]/70">
-            Running low
+            {t('stock.runningLow')}
           </p>
         )}
 
@@ -260,8 +262,10 @@ export default function StockAlertWidget({
               </p>
 
               <p className="text-[11px] text-[#B8860B]/90">
-                {alert.stockItem.quantity}{' '}
-                {alert.stockItem.unit ?? 'units'} left
+                {t('stock.unitsLeft', {
+                  n: alert.stockItem.quantity,
+                  unit: alert.stockItem.unit ?? t('common.units'),
+                })}
               </p>
             </div>
 
@@ -281,7 +285,7 @@ export default function StockAlertWidget({
             }
             className="w-full rounded-lg py-1.5 text-center text-[11.5px] font-medium text-[#1F2A24]/40 hover:bg-black/[0.03] hover:text-[#1F2A24]/60"
           >
-            +{overflow} more
+            {t('stock.moreAlerts', { n: overflow })}
           </button>
         )}
       </div>
@@ -292,7 +296,7 @@ export default function StockAlertWidget({
           className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg border border-black/5 py-2 text-[11.5px] font-medium text-[#1F2A24]/50 hover:bg-black/[0.03] hover:text-[#1F2A24]/70"
         >
           <CheckCheck size={13} />
-          Dismiss all
+          {t('stock.dismissAll')}
         </button>
       )}
     </div>

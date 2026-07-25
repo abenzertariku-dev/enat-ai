@@ -137,11 +137,11 @@ export default function LoginPage() {
 
     if (!isLogin) {
       if (formData.password.length < MIN_PASSWORD_LENGTH) {
-        toast.error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`)
+        toast.error(t('login.passwordTooShort', { n: MIN_PASSWORD_LENGTH }))
         return
       }
       if (formData.password !== confirmPassword) {
-        toast.error('Passwords do not match')
+        toast.error(t('login.passwordMismatch'))
         return
       }
     }
@@ -177,20 +177,20 @@ export default function LoginPage() {
         if (isLogin) {
           localStorage.setItem('token', data.token)
           localStorage.setItem('user', JSON.stringify(data.user))
-          toast.success('Welcome back! 🎉')
+          toast.success(t('login.welcomeBack'))
           router.push('/dashboard')
         } else {
-          toast.success('🎉 Account created successfully! Please sign in.')
+          toast.success(t('login.accountCreated'))
           setIsLogin(true)
           setFormData((f) => ({ ...f, password: '' }))
           setConfirmPassword('')
           setStep(1)
         }
       } else {
-        toast.error(data.error || 'Something went wrong')
+        toast.error(data.error || t('login.somethingWrong'))
       }
     } catch {
-      toast.error('Network error')
+      toast.error(t('common.networkError'))
     } finally {
       setLoading(false)
     }
@@ -199,15 +199,15 @@ export default function LoginPage() {
   const nextStep = () => {
     // Validate basic fields before moving to step 2
     if (!formData.name || !formData.email || !formData.password || !confirmPassword) {
-      toast.error('Please fill in all required fields')
+      toast.error(t('login.fillRequired'))
       return
     }
     if (formData.password !== confirmPassword) {
-      toast.error('Passwords do not match')
+      toast.error(t('login.passwordMismatch'))
       return
     }
     if (formData.password.length < MIN_PASSWORD_LENGTH) {
-      toast.error(`Password must be at least ${MIN_PASSWORD_LENGTH} characters`)
+      toast.error(t('login.passwordTooShort', { n: MIN_PASSWORD_LENGTH }))
       return
     }
     setStep(2)
@@ -327,11 +327,11 @@ export default function LoginPage() {
           <p className="mt-1 text-[14px] text-[var(--muted)]">{t('login.create')}</p>
           <div className="mt-2 flex items-center justify-center gap-2">
             <span className={`text-xs font-medium ${step === 1 ? 'text-[#0F6B4C]' : 'text-[#1F2A24]/30'}`}>
-              Step 1: Basic Info
+              {t('login.step1')}
             </span>
             <span className="text-[#1F2A24]/20">—</span>
             <span className={`text-xs font-medium ${step === 2 ? 'text-[#0F6B4C]' : 'text-[#1F2A24]/30'}`}>
-              Step 2: Business Details
+              {t('login.step2')}
             </span>
           </div>
           <div className="mt-1.5 h-1 w-full rounded-full bg-[#1F2A24]/10">
@@ -346,7 +346,7 @@ export default function LoginPage() {
           {/* ─── STEP 1: Basic Info ──────────────────────────────────── */}
           {step === 1 && (
             <>
-              <Field label="Full name" required icon={<Users size={14} />}>
+              <Field label={t('login.fullName')} required icon={<Users size={14} />}>
                 <input
                   type="text"
                   name="name"
@@ -355,11 +355,11 @@ export default function LoginPage() {
                   className={inputClass}
                   value={formData.name}
                   onChange={handleChange}
-                  placeholder="e.g., Kebede Alemu"
+                  placeholder={t('login.namePlaceholder')}
                 />
               </Field>
 
-              <Field label="Email address" required icon={<span>📧</span>}>
+              <Field label={t('login.email')} required icon={<span>📧</span>}>
                 <input
                   type="email"
                   name="email"
@@ -368,11 +368,11 @@ export default function LoginPage() {
                   className={inputClass}
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder="kebede@example.com"
+                  placeholder={t('login.emailPlaceholder')}
                 />
               </Field>
 
-              <Field label="Phone number" icon={<span>📞</span>}>
+              <Field label={t('login.phone')} icon={<span>📞</span>}>
                 <input
                   type="tel"
                   name="phone"
@@ -380,11 +380,11 @@ export default function LoginPage() {
                   className={inputClass}
                   value={formData.phone}
                   onChange={handleChange}
-                  placeholder="09XX XXX XXX"
+                  placeholder={t('login.phonePlaceholder')}
                 />
               </Field>
 
-              <Field label="Password" required>
+              <Field label={t('login.password')} required>
                 <div className="relative">
                   <input
                     type={showPassword ? 'text' : 'password'}
@@ -395,7 +395,7 @@ export default function LoginPage() {
                     className={`${inputClass} pr-11`}
                     value={formData.password}
                     onChange={handleChange}
-                    placeholder="Min 8 characters"
+                    placeholder={t('login.passwordPlaceholder', { n: MIN_PASSWORD_LENGTH })}
                   />
                   <button
                     type="button"
@@ -406,10 +406,10 @@ export default function LoginPage() {
                     {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
                   </button>
                 </div>
-                <p className="mt-1 text-[11.5px] text-[#1F2A24]/40">Minimum {MIN_PASSWORD_LENGTH} characters</p>
+                <p className="mt-1 text-[11.5px] text-[#1F2A24]/40">{t('login.passwordHint', { n: MIN_PASSWORD_LENGTH })}</p>
               </Field>
 
-              <Field label="Confirm password" required>
+              <Field label={t('login.confirmPassword')} required>
                 <input
                   type={showPassword ? 'text' : 'password'}
                   name="confirmPassword"
@@ -418,7 +418,7 @@ export default function LoginPage() {
                   className={inputClass}
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
-                  placeholder="Re-enter your password"
+                  placeholder={t('login.confirmPlaceholder')}
                 />
               </Field>
 
@@ -427,7 +427,7 @@ export default function LoginPage() {
                 onClick={nextStep}
                 className="w-full rounded-xl bg-[#0F6B4C] py-3 font-semibold text-white transition hover:bg-[#0B5A3F]"
               >
-                Continue → Business Details
+                {t('login.continueBusiness')}
               </button>
             </>
           )}
@@ -437,11 +437,11 @@ export default function LoginPage() {
             <>
               <div className="rounded-xl bg-[var(--enat-green-mid)]/[0.08] border border-[var(--enat-green-mid)]/20 p-3">
                 <p className="text-xs text-[var(--muted)]">
-                  Tell us about your business so we can tailor ENAT AI for you
+                  {t('login.tailorHint')}
                 </p>
               </div>
 
-              <Field label="Business name" required icon={<Building2 size={14} />}>
+              <Field label={t('login.businessName')} required icon={<Building2 size={14} />}>
                 <input
                   type="text"
                   name="businessName"
@@ -449,11 +449,11 @@ export default function LoginPage() {
                   className={inputClass}
                   value={formData.businessName}
                   onChange={handleChange}
-                  placeholder="e.g., Kebede's Teff Shop"
+                  placeholder={t('login.businessNamePlaceholder')}
                 />
               </Field>
 
-              <Field label="What type of business?" required icon={<span>🏪</span>}>
+              <Field label={t('login.businessType')} required icon={<span>🏪</span>}>
                 <select
                   name="businessType"
                   required
@@ -461,7 +461,7 @@ export default function LoginPage() {
                   value={formData.businessType}
                   onChange={handleChange}
                 >
-                  <option value="">Select your business type</option>
+                  <option value="">{t('login.selectBusinessType')}</option>
                   {BUSINESS_TYPES.map((type) => (
                     <option key={type.value} value={type.value}>
                       {type.label}
@@ -475,12 +475,12 @@ export default function LoginPage() {
                     className={`${inputClass} mt-2`}
                     value={formData.businessTypeOther}
                     onChange={handleChange}
-                    placeholder="Please specify your business type"
+                    placeholder={t('login.businessTypeOther')}
                   />
                 )}
               </Field>
 
-              <Field label="Team size" required icon={<Users size={14} />}>
+              <Field label={t('login.teamSize')} required icon={<Users size={14} />}>
                 <select
                   name="teamSize"
                   required
@@ -488,7 +488,7 @@ export default function LoginPage() {
                   value={formData.teamSize}
                   onChange={handleChange}
                 >
-                  <option value="">How many people work with you?</option>
+                  <option value="">{t('login.selectTeamSize')}</option>
                   {TEAM_SIZES.map((size) => (
                     <option key={size.value} value={size.value}>
                       {size.label}
@@ -502,31 +502,31 @@ export default function LoginPage() {
                     className={`${inputClass} mt-2`}
                     value={formData.teamSizeOther}
                     onChange={handleChange}
-                    placeholder="How many people?"
+                    placeholder={t('login.teamSizeOther')}
                     min="1"
                   />
                 )}
               </Field>
 
-              <Field label="Business location" icon={<MapPin size={14} />}>
+              <Field label={t('login.location')} icon={<MapPin size={14} />}>
                 <input
                   type="text"
                   name="location"
                   className={inputClass}
                   value={formData.location}
                   onChange={handleChange}
-                  placeholder="e.g., Addis Ababa, Merkato"
+                  placeholder={t('login.locationPlaceholder')}
                 />
               </Field>
 
-              <Field label="What's your biggest challenge?" icon={<AlertCircle size={14} />}>
+              <Field label={t('login.challenge')} icon={<AlertCircle size={14} />}>
                 <select
                   name="challenge"
                   className={selectClass}
                   value={formData.challenge}
                   onChange={handleChange}
                 >
-                  <option value="">Select your main challenge</option>
+                  <option value="">{t('login.selectChallenge')}</option>
                   {CHALLENGES.map((challenge) => (
                     <option key={challenge.value} value={challenge.value}>
                       {challenge.label}
@@ -540,7 +540,7 @@ export default function LoginPage() {
                     className={`${inputClass} mt-2`}
                     value={formData.challengeOther}
                     onChange={handleChange}
-                    placeholder="Please describe your challenge"
+                    placeholder={t('login.challengeOther')}
                   />
                 )}
               </Field>
@@ -551,7 +551,7 @@ export default function LoginPage() {
                   onClick={prevStep}
                   className="flex-1 rounded-xl border border-black/10 py-3 font-medium text-[#1F2A24]/60 transition hover:bg-black/5"
                 >
-                  ← Back
+                  ← {t('common.back')}
                 </button>
                 <button
                   type="submit"
@@ -561,10 +561,10 @@ export default function LoginPage() {
                   {loading ? (
                     <span className="flex items-center justify-center gap-2">
                       <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                      Creating…
+                      {t('common.creating')}
                     </span>
                   ) : (
-                    'Create account'
+                    t('common.create')
                   )}
                 </button>
               </div>

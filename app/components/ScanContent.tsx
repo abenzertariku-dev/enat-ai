@@ -2,6 +2,7 @@
 
 import { useRef, useState, useCallback, useEffect } from 'react'
 import { Camera, Upload, X, ImageIcon, AlertCircle } from 'lucide-react'
+import { useI18n } from '@/lib/i18n'
 
 interface ScanContentProps {
   onPhotoUpload: (file: File) => void
@@ -16,6 +17,7 @@ function formatSize(bytes: number) {
 }
 
 export default function ScanContent({ onPhotoUpload, isLoading }: ScanContentProps) {
+  const { t, locale } = useI18n()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [preview, setPreview] = useState<{ url: string; file: File } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -23,16 +25,16 @@ export default function ScanContent({ onPhotoUpload, isLoading }: ScanContentPro
 
   // #region agent log
   useEffect(() => {
-    fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'i18n-pre',hypothesisId:'A',location:'ScanContent.tsx:mount',message:'ScanContent render — hardcoded EN?',data:{usesI18n:false,docLang:typeof document!=='undefined'?document.documentElement.lang:'?',hardcodedTitle:'Scan to ledger'},timestamp:Date.now()})}).catch(()=>{});
-  }, [])
+    fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'post-fix',hypothesisId:'A',location:'ScanContent.tsx:mount',message:'ScanContent render — hardcoded EN?',data:{usesI18n:true,locale,docLang:typeof document!=='undefined'?document.documentElement.lang:'?',hardcodedTitle:t('scan.title')},timestamp:Date.now()})}).catch(()=>{});
+  }, [locale, t])
   // #endregion
 
   const validate = (file: File): string | null => {
     if (file.type && !ACCEPTED_TYPES.includes(file.type)) {
-      return 'Unsupported file type. Use JPG, PNG, WebP, or HEIC.'
+      return t('scan.badType')
     }
     if (file.size > MAX_BYTES) {
-      return `File is too large (${formatSize(file.size)}). Max size is 8 MB.`
+      return t('scan.tooLarge', { size: formatSize(file.size) })
     }
     return null
   }
@@ -46,7 +48,7 @@ export default function ScanContent({ onPhotoUpload, isLoading }: ScanContentPro
     }
     setError(null)
     setPreview({ url: URL.createObjectURL(file), file })
-  }, [])
+  }, [t])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -73,9 +75,9 @@ export default function ScanContent({ onPhotoUpload, isLoading }: ScanContentPro
   return (
     <div className="space-y-4">
       <div className="rounded-2xl border border-black/5 bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <h2 className="text-lg font-bold tracking-tight text-[#1F2A24]">Scan to ledger</h2>
+        <h2 className="text-lg font-bold tracking-tight text-[#1F2A24]">{t('scan.title')}</h2>
         <p className="mt-1 text-sm text-[#1F2A24]/50">
-          Photograph a handwritten notebook page or receipt — the AI reads it for you.
+          {t('scan.subtitle')}
         </p>
       </div>
 
@@ -101,7 +103,7 @@ export default function ScanContent({ onPhotoUpload, isLoading }: ScanContentPro
               className="flex items-center gap-2 rounded-xl bg-[#0F6B4C] px-7 py-3.5 font-medium text-white transition hover:bg-[#0B5A3F]"
             >
               <Upload size={18} />
-              Upload photo
+              {t('scan.upload')}
             </button>
 
             <input
@@ -114,7 +116,7 @@ export default function ScanContent({ onPhotoUpload, isLoading }: ScanContentPro
             />
 
             <p className="mt-3 text-[12px] text-[#1F2A24]/35">
-              or drag a photo here · JPG, PNG, WebP · max 8 MB
+              {t('scan.drop')}
             </p>
 
             {error && (
@@ -151,14 +153,14 @@ export default function ScanContent({ onPhotoUpload, isLoading }: ScanContentPro
                 disabled={isLoading}
                 className="rounded-xl px-5 py-3 text-sm font-medium text-[#1F2A24]/60 transition hover:bg-black/5 disabled:opacity-50"
               >
-                Retake
+                {t('scan.retake')}
               </button>
               <button
                 onClick={submit}
                 disabled={isLoading}
                 className="rounded-xl bg-[#0F6B4C] px-7 py-3 text-sm font-medium text-white transition hover:bg-[#0B5A3F] disabled:opacity-50"
               >
-                {isLoading ? 'Reading photo…' : 'Add to ledger'}
+                {isLoading ? t('scan.reading') : t('scan.add')}
               </button>
             </div>
           </div>
@@ -166,11 +168,11 @@ export default function ScanContent({ onPhotoUpload, isLoading }: ScanContentPro
       </div>
 
       <div className="rounded-2xl border border-[#0F6B4C]/15 bg-[#0F6B4C]/[0.05] p-4">
-        <h3 className="text-[13px] font-semibold text-[#0F6B4C]">How it works</h3>
+        <h3 className="text-[13px] font-semibold text-[#0F6B4C]">{t('scan.how')}</h3>
         <ol className="mt-1.5 list-inside list-decimal space-y-1 text-[13px] text-[#1F2A24]/60">
-          <li>Photograph your handwritten ledger page</li>
-          <li>AI reads the text and pulls out customer, product, and amount</li>
-          <li>The transaction is added to your ledger automatically</li>
+          <li>{t('scan.step1')}</li>
+          <li>{t('scan.step2')}</li>
+          <li>{t('scan.step3')}</li>
         </ol>
       </div>
     </div>

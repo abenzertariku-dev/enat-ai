@@ -6,6 +6,7 @@ import {
   TrendingUp, TrendingDown, Minus, Plus
 } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useI18n } from '@/lib/i18n'
 
 interface StockItem {
   id: string
@@ -26,6 +27,7 @@ interface StockInventoryProps {
 }
 
 export default function StockInventory({ items, onRefresh, onUpdateItem }: StockInventoryProps) {
+  const { t } = useI18n()
   const [search, setSearch] = useState('')
   const [editingItem, setEditingItem] = useState<StockItem | null>(null)
 
@@ -53,29 +55,29 @@ export default function StockInventory({ items, onRefresh, onUpdateItem }: Stock
         }),
       })
       if (res.ok) {
-        toast.success('Stock updated!')
+        toast.success(t('stock.updated'))
         onRefresh()
       } else {
-        toast.error('Failed to update stock')
+        toast.error(t('stock.updateFailed'))
       }
     } catch (error) {
-      toast.error('Failed to update stock')
+      toast.error(t('stock.updateFailed'))
     }
   }
 
   const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this item?')) return
+    if (!confirm(t('stock.confirmDelete'))) return
     try {
       const res = await fetch(`/api/stock?id=${id}`, {
         method: 'DELETE',
         headers: getAuthHeaders()
       })
       if (res.ok) {
-        toast.success('Item deleted')
+        toast.success(t('stock.deleted'))
         onRefresh()
       }
     } catch (error) {
-      toast.error('Failed to delete')
+      toast.error(t('stock.deleteFailed'))
     }
   }
 
@@ -90,13 +92,13 @@ export default function StockInventory({ items, onRefresh, onUpdateItem }: Stock
         body: JSON.stringify(editingItem)
       })
       if (res.ok) {
-        toast.success('Item updated!')
+        toast.success(t('stock.itemUpdated'))
         setEditingItem(null)
         onUpdateItem()
         onRefresh()
       }
     } catch (error) {
-      toast.error('Failed to update')
+      toast.error(t('toast.updateFailed'))
     }
   }
 
@@ -107,7 +109,7 @@ export default function StockInventory({ items, onRefresh, onUpdateItem }: Stock
         <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#1F2A24]/30" />
         <input
           type="text"
-          placeholder="Search inventory..."
+          placeholder={t('stock.search')}
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="w-full rounded-xl border border-black/10 bg-[#FBF9F5] py-2.5 pl-10 pr-4 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
@@ -117,8 +119,8 @@ export default function StockInventory({ items, onRefresh, onUpdateItem }: Stock
       {filtered.length === 0 ? (
         <div className="py-10 text-center text-[#1F2A24]/35">
           <Package size={30} className="mx-auto mb-2" />
-          <p className="font-medium">No items in stock</p>
-          <p className="text-sm">Add items using the "Add Items" tab</p>
+          <p className="font-medium">{t('stock.empty')}</p>
+          <p className="text-sm">{t('stock.emptyHint')}</p>
         </div>
       ) : (
         <div className="space-y-2">
@@ -150,23 +152,23 @@ export default function StockInventory({ items, onRefresh, onUpdateItem }: Stock
                     <p className="font-medium text-[#1F2A24] truncate">{item.name}</p>
                     {isOut && (
                       <span className="text-[10px] font-semibold text-red-600 bg-red-100 px-1.5 py-0.5 rounded">
-                        OUT OF STOCK
+                        {t('stock.out')}
                       </span>
                     )}
                     {isLow && !isOut && (
                       <span className="text-[10px] font-semibold text-yellow-600 bg-yellow-100 px-1.5 py-0.5 rounded">
-                        LOW
+                        {t('stock.low')}
                       </span>
                     )}
                   </div>
                   <div className="flex flex-wrap items-center gap-2 text-xs text-[#1F2A24]/50">
-                    <span>{item.quantity} {item.unit || 'units'}</span>
+                    <span>{item.quantity} {item.unit || t('common.units')}</span>
                     <span className="w-0.5 h-0.5 rounded-full bg-[#1F2A24]/20" />
-                    <span>Min: {item.minQuantity || 5}</span>
+                    <span>{t('stock.minLabel', { n: item.minQuantity || 5 })}</span>
                     {item.sellingPrice > 0 && (
                       <>
                         <span className="w-0.5 h-0.5 rounded-full bg-[#1F2A24]/20" />
-                        <span>Sale: {item.sellingPrice} Br</span>
+                        <span>{t('stock.saleLabel', { n: item.sellingPrice })}</span>
                       </>
                     )}
                   </div>
@@ -177,7 +179,7 @@ export default function StockInventory({ items, onRefresh, onUpdateItem }: Stock
                   <button
                     onClick={() => handleUpdateQuantity(item.id, 1)}
                     className="p-1.5 rounded-lg hover:bg-emerald-100 text-emerald-600 transition"
-                    title="Add one"
+                    title={t('stock.addOne')}
                   >
                     <Plus size={14} />
                   </button>
@@ -185,21 +187,21 @@ export default function StockInventory({ items, onRefresh, onUpdateItem }: Stock
                     onClick={() => handleUpdateQuantity(item.id, -1)}
                     disabled={item.quantity <= 0}
                     className="p-1.5 rounded-lg hover:bg-red-100 text-red-600 transition disabled:opacity-30"
-                    title="Remove one"
+                    title={t('stock.removeOne')}
                   >
                     <Minus size={14} />
                   </button>
                   <button
                     onClick={() => setEditingItem(item)}
                     className="p-1.5 rounded-lg hover:bg-blue-100 text-blue-600 transition"
-                    title="Edit"
+                    title={t('common.edit')}
                   >
                     <Edit2 size={14} />
                   </button>
                   <button
                     onClick={() => handleDelete(item.id)}
                     className="p-1.5 rounded-lg hover:bg-red-100 text-red-600 transition"
-                    title="Delete"
+                    title={t('common.delete')}
                   >
                     <Trash2 size={14} />
                   </button>
@@ -214,14 +216,14 @@ export default function StockInventory({ items, onRefresh, onUpdateItem }: Stock
       {editingItem && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="bg-white rounded-2xl p-6 max-w-md w-full">
-            <h3 className="text-lg font-bold text-[#1F2A24] mb-4">Edit Item</h3>
+            <h3 className="text-lg font-bold text-[#1F2A24] mb-4">{t('stock.editItem')}</h3>
             <form onSubmit={handleEdit} className="space-y-3">
               <input
                 type="text"
                 value={editingItem.name}
                 onChange={(e) => setEditingItem({ ...editingItem, name: e.target.value })}
                 className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm"
-                placeholder="Item name"
+                placeholder={t('stock.itemName')}
               />
               <div className="grid grid-cols-2 gap-3">
                 <input
@@ -229,7 +231,7 @@ export default function StockInventory({ items, onRefresh, onUpdateItem }: Stock
                   value={editingItem.quantity}
                   onChange={(e) => setEditingItem({ ...editingItem, quantity: parseFloat(e.target.value) || 0 })}
                   className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm"
-                  placeholder="Quantity"
+                  placeholder={t('stock.quantity')}
                   step="0.5"
                 />
                 <input
@@ -237,7 +239,7 @@ export default function StockInventory({ items, onRefresh, onUpdateItem }: Stock
                   value={editingItem.unit || ''}
                   onChange={(e) => setEditingItem({ ...editingItem, unit: e.target.value })}
                   className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm"
-                  placeholder="Unit (kg, pcs, etc)"
+                  placeholder={t('stock.unitPlaceholder')}
                 />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -246,7 +248,7 @@ export default function StockInventory({ items, onRefresh, onUpdateItem }: Stock
                   value={editingItem.sellingPrice || ''}
                   onChange={(e) => setEditingItem({ ...editingItem, sellingPrice: parseFloat(e.target.value) || 0 })}
                   className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm"
-                  placeholder="Selling price (Br)"
+                  placeholder={t('stock.sellingPrice')}
                   step="0.01"
                 />
                 <input
@@ -254,7 +256,7 @@ export default function StockInventory({ items, onRefresh, onUpdateItem }: Stock
                   value={editingItem.minQuantity || 5}
                   onChange={(e) => setEditingItem({ ...editingItem, minQuantity: parseFloat(e.target.value) || 5 })}
                   className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm"
-                  placeholder="Min quantity alert"
+                  placeholder={t('stock.minQuantityAlert')}
                   step="0.5"
                 />
               </div>
@@ -264,13 +266,13 @@ export default function StockInventory({ items, onRefresh, onUpdateItem }: Stock
                   onClick={() => setEditingItem(null)}
                   className="flex-1 px-4 py-2.5 rounded-xl border border-black/10 text-sm font-medium hover:bg-gray-50 transition"
                 >
-                  Cancel
+                  {t('common.cancel')}
                 </button>
                 <button
                   type="submit"
                   className="flex-1 px-4 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-medium hover:bg-emerald-700 transition"
                 >
-                  Save
+                  {t('common.save')}
                 </button>
               </div>
             </form>

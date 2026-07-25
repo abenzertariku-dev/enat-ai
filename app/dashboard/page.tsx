@@ -42,13 +42,13 @@ const PAGE_TITLE_KEYS: Record<string, string> = {
 
 export default function Home() {
   const router = useRouter()
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
   const [activeTab, setActiveTab] = useState('dashboard')
 
   // #region agent log
   useEffect(() => {
-    fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'i18n-pre',hypothesisId:'E',location:'dashboard/page.tsx:tab',message:'active tab + chrome title translated?',data:{activeTab,pageTitle:t(PAGE_TITLE_KEYS[activeTab]||'page.dashboard'),docLang:typeof document!=='undefined'?document.documentElement.lang:'?',storedLocale:typeof localStorage!=='undefined'?localStorage.getItem('enat-locale'):null},timestamp:Date.now()})}).catch(()=>{});
-  }, [activeTab, t])
+    fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'post-fix',hypothesisId:'E',location:'dashboard/page.tsx:tab',message:'active tab + chrome title translated?',data:{activeTab,pageTitle:t(PAGE_TITLE_KEYS[activeTab]||'page.dashboard'),locale,docLang:typeof document!=='undefined'?document.documentElement.lang:'?',storedLocale:typeof localStorage!=='undefined'?localStorage.getItem('enat-locale'):null},timestamp:Date.now()})}).catch(()=>{});
+  }, [activeTab, t, locale])
   // #endregion
   const [isLoading, setIsLoading] = useState(true)
   const [user, setUser] = useState<UserData | null>(null)
@@ -369,8 +369,7 @@ export default function Home() {
               <>
                 {subscription && subscription.subscriptionStatus === 'trialing' && activeTab === 'dashboard' && (
                   <div className="mb-4 rounded-xl border border-[#B88A44]/25 bg-[#B88A44]/10 px-4 py-3 text-[13px] text-[var(--enat-ink)]">
-                    Free trial: <strong>{subscription.daysLeft}</strong> day(s) left. Upgrade anytime with Chapa or
-                    Telebirr in Settings.
+                    {t('dash.trialBanner', { n: subscription.daysLeft })}
                   </div>
                 )}
 
@@ -416,10 +415,10 @@ export default function Home() {
               <div className="space-y-4">
                 <div className="flex gap-1 bg-white rounded-xl border border-black/5 p-1">
                   {[
-                    { id: 'inventory', label: 'Inventory' },
-                    { id: 'import', label: 'Add Items' },
-                    { id: 'sales', label: 'Sales' },
-                    { id: 'alerts', label: 'Alerts' },
+                    { id: 'inventory', labelKey: 'stock.inventory' },
+                    { id: 'import', labelKey: 'stock.import' },
+                    { id: 'sales', labelKey: 'stock.sales' },
+                    { id: 'alerts', labelKey: 'stock.alerts' },
                   ].map((tab) => (
                     <button
                       key={tab.id}
@@ -430,7 +429,7 @@ export default function Home() {
                           : 'text-[#1F2A24]/60 hover:bg-gray-50'
                       }`}
                     >
-                      {tab.label} {tab.id === 'alerts' && stockAlerts.length > 0 && (
+                      {t(tab.labelKey)} {tab.id === 'alerts' && stockAlerts.length > 0 && (
                         <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-red-500 text-white rounded-full">
                           {stockAlerts.length}
                         </span>

@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Bell, AlertTriangle, Check, X, Package, Clock } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useI18n } from '@/lib/i18n'
 
 interface Alert {
   id: string
@@ -23,6 +24,7 @@ interface StockAlertsProps {
 }
 
 export default function StockAlerts({ alerts, onDismiss, onRefresh }: StockAlertsProps) {
+  const { t } = useI18n()
   const [dismissing, setDismissing] = useState(false)
 
   const getAuthHeaders = () => {
@@ -42,12 +44,12 @@ export default function StockAlerts({ alerts, onDismiss, onRefresh }: StockAlert
         body: JSON.stringify({ alertIds })
       })
       if (res.ok) {
-        toast.success('Alerts dismissed')
+        toast.success(t('stock.dismissed'))
         onDismiss()
         onRefresh()
       }
     } catch (error) {
-      toast.error('Failed to dismiss alerts')
+      toast.error(t('stock.dismissFailed'))
     } finally {
       setDismissing(false)
     }
@@ -63,8 +65,8 @@ export default function StockAlerts({ alerts, onDismiss, onRefresh }: StockAlert
     return (
       <div className="bg-white rounded-2xl border border-black/5 p-8 text-center shadow-sm">
         <Bell size={40} className="mx-auto text-emerald-400 mb-3" />
-        <h3 className="font-semibold text-[#1F2A24] text-lg">All Clear!</h3>
-        <p className="text-sm text-[#1F2A24]/50">No stock alerts at this time</p>
+        <h3 className="font-semibold text-[#1F2A24] text-lg">{t('stock.allClear')}</h3>
+        <p className="text-sm text-[#1F2A24]/50">{t('stock.noAlerts')}</p>
       </div>
     )
   }
@@ -75,7 +77,7 @@ export default function StockAlerts({ alerts, onDismiss, onRefresh }: StockAlert
         <div className="flex items-center gap-2">
           <Bell size={20} className="text-red-500" />
           <h3 className="font-semibold text-[#1F2A24]">
-            Stock Alerts ({alerts.length})
+            {t('stock.alertsTitle', { n: alerts.length })}
           </h3>
         </div>
         <button
@@ -83,7 +85,7 @@ export default function StockAlerts({ alerts, onDismiss, onRefresh }: StockAlert
           disabled={dismissing}
           className="text-sm text-emerald-600 hover:text-emerald-700 font-medium disabled:opacity-50"
         >
-          Dismiss All
+          {t('stock.dismissAll')}
         </button>
       </div>
 
@@ -110,7 +112,7 @@ export default function StockAlerts({ alerts, onDismiss, onRefresh }: StockAlert
             <div className="flex-1">
               <p className="text-sm font-medium text-[#1F2A24]">{alert.message}</p>
               <div className="flex items-center gap-3 mt-1 text-xs text-[#1F2A24]/50">
-                <span>Current: {alert.stockItem.quantity} {alert.stockItem.unit}</span>
+                <span>{t('stock.current', { n: alert.stockItem.quantity, unit: alert.stockItem.unit })}</span>
                 <span className="w-0.5 h-0.5 rounded-full bg-[#1F2A24]/20" />
                 <span>{new Date(alert.createdAt).toLocaleDateString()}</span>
               </div>
@@ -120,7 +122,7 @@ export default function StockAlerts({ alerts, onDismiss, onRefresh }: StockAlert
               onClick={() => dismissAlerts([alert.id])}
               disabled={dismissing}
               className="p-1.5 rounded-lg hover:bg-white/60 transition"
-              title="Dismiss"
+              title={t('stock.dismiss')}
             >
               <X size={14} className="text-[#1F2A24]/40" />
             </button>

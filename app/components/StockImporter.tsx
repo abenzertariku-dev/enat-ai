@@ -3,12 +3,14 @@
 import { useState } from 'react'
 import { Upload, X, Check, AlertCircle, Package, Plus } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useI18n } from '@/lib/i18n'
 
 interface StockImporterProps {
   onImportComplete: () => void
 }
 
 export default function StockImporter({ onImportComplete }: StockImporterProps) {
+  const { t } = useI18n()
   const [itemsText, setItemsText] = useState('')
   const [pricesText, setPricesText] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -24,7 +26,7 @@ export default function StockImporter({ onImportComplete }: StockImporterProps) 
 
   const handleImport = async () => {
     if (!itemsText.trim()) {
-      toast.error('Please enter at least one item')
+      toast.error(t('stock.enterOneItem'))
       return
     }
 
@@ -32,7 +34,6 @@ export default function StockImporter({ onImportComplete }: StockImporterProps) 
     setResults([])
 
     try {
-      // Parse items from textarea (one per line)
       const lines = itemsText.split('\n').filter(line => line.trim())
       const priceLines = pricesText.split('\n').filter(line => line.trim())
 
@@ -53,7 +54,7 @@ export default function StockImporter({ onImportComplete }: StockImporterProps) 
       }).filter(item => item.name)
 
       if (items.length === 0) {
-        toast.error('No valid items found')
+        toast.error(t('stock.noValidItems'))
         return
       }
 
@@ -68,17 +69,17 @@ export default function StockImporter({ onImportComplete }: StockImporterProps) 
       if (res.ok) {
         setResults(data.results.map((r: any) => ({
           success: true,
-          message: `${r.action === 'created' ? '➕ Added' : '🔄 Updated'}: ${r.item.name} (${r.item.quantity} ${r.item.unit})`
+          message: `${r.action === 'created' ? `➕ ${t('stock.added')}` : `🔄 ${t('stock.updatedRow')}`}: ${r.item.name} (${r.item.quantity} ${r.item.unit})`
         })))
-        toast.success(`✅ ${data.results.length} items processed!`)
+        toast.success(`✅ ${t('stock.itemsProcessed', { n: data.results.length })}`)
         onImportComplete()
         setItemsText('')
         setPricesText('')
       } else {
-        toast.error(data.error || 'Import failed')
+        toast.error(data.error || t('stock.importFailed'))
       }
     } catch (error) {
-      toast.error('Network error')
+      toast.error(t('common.networkError'))
     } finally {
       setIsLoading(false)
     }
@@ -105,24 +106,23 @@ Oil,40,liters,15,Groceries`
     <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="font-semibold text-[#1F2A24]">Bulk Add Items</h3>
-          <p className="text-sm text-[#1F2A24]/50">Add multiple items at once</p>
+          <h3 className="font-semibold text-[#1F2A24]">{t('stock.bulkAdd')}</h3>
+          <p className="text-sm text-[#1F2A24]/50">{t('stock.bulkAddHint')}</p>
         </div>
         <button
           onClick={fillDefaults}
           className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
         >
-          Fill example rows
+          {t('stock.fillExample')}
         </button>
       </div>
 
       <div className="grid md:grid-cols-2 gap-4">
-        {/* Items Input */}
         <div>
           <label className="block text-sm font-medium text-[#1F2A24]/70 mb-1">
-            Items (one per line)
+            {t('stock.itemsLabel')}
             <span className="text-xs text-[#1F2A24]/40 block mt-0.5">
-              Format: name, quantity, unit, min_quantity, category, description
+              {t('stock.itemsFormat')}
             </span>
           </label>
           <textarea
@@ -133,12 +133,11 @@ Oil,40,liters,15,Groceries`
           />
         </div>
 
-        {/* Prices Input */}
         <div>
           <label className="block text-sm font-medium text-[#1F2A24]/70 mb-1">
-            Prices (one per line)
+            {t('stock.pricesLabel')}
             <span className="text-xs text-[#1F2A24]/40 block mt-0.5">
-              Format: selling_price, purchase_price
+              {t('stock.pricesFormat')}
             </span>
           </label>
           <textarea
@@ -157,7 +156,7 @@ Oil,40,liters,15,Groceries`
           className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition disabled:opacity-50"
         >
           <Upload size={18} />
-          {isLoading ? 'Importing...' : 'Import Items'}
+          {isLoading ? t('stock.importing') : t('stock.importItems')}
         </button>
         <button
           onClick={() => {
@@ -167,11 +166,10 @@ Oil,40,liters,15,Groceries`
           }}
           className="px-6 py-2.5 border border-black/10 rounded-xl font-medium hover:bg-gray-50 transition"
         >
-          Clear
+          {t('stock.clear')}
         </button>
       </div>
 
-      {/* Results */}
       {results.length > 0 && (
         <div className="mt-4 max-h-48 overflow-y-auto space-y-1">
           {results.map((r, i) => (

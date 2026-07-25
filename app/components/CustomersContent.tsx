@@ -2,6 +2,7 @@
 
 import { Search, MessageSquare, Users, Shield, Sparkles, TrendingUp, TrendingDown, Phone, Mail, Clock, AlertTriangle, CheckCircle, CreditCard, ArrowRight } from 'lucide-react'
 import { useMemo, useState } from 'react'
+import { useI18n } from '@/lib/i18n'
 import DebtGuardian from './DebtGuardian'
 
 interface Customer {
@@ -35,21 +36,28 @@ function initials(name: string) {
     .join('')
 }
 
-function getRiskLevel(debt: number): { level: 'low' | 'medium' | 'high'; color: string; bg: string; label: string } {
+function getRiskLevel(debt: number): { level: 'low' | 'medium' | 'high'; color: string; bg: string } {
   if (debt > 50000) {
-    return { level: 'high', color: 'text-red-600', bg: 'bg-red-50', label: 'High Risk' }
+    return { level: 'high', color: 'text-red-600', bg: 'bg-red-50' }
   } else if (debt > 20000) {
-    return { level: 'medium', color: 'text-yellow-600', bg: 'bg-yellow-50', label: 'Medium Risk' }
+    return { level: 'medium', color: 'text-yellow-600', bg: 'bg-yellow-50' }
   } else {
-    return { level: 'low', color: 'text-green-600', bg: 'bg-green-50', label: 'Low Risk' }
+    return { level: 'low', color: 'text-green-600', bg: 'bg-green-50' }
   }
 }
+
+const RISK_LABEL_KEYS = {
+  high: 'customers.highRisk',
+  medium: 'customers.mediumRisk',
+  low: 'customers.lowRisk',
+} as const
 
 function formatCurrency(amount: number) {
   return amount.toLocaleString() + ' Br'
 }
 
 export default function CustomersContent({ customers, transactions }: CustomersContentProps) {
+  const { t } = useI18n()
   const [search, setSearch] = useState('')
   const [selectedCustomer, setSelectedCustomer] = useState<{
     id: string
@@ -102,32 +110,32 @@ export default function CustomersContent({ customers, transactions }: CustomersC
       <div className="rounded-2xl border border-black/5 bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold tracking-tight text-[#1F2A24]">Customers</h2>
+            <h2 className="text-lg font-bold tracking-tight text-[#1F2A24]">{t('customers.title')}</h2>
             <p className="mt-1 text-sm text-[#1F2A24]/50">
-              Manage your customer relationships and balances
+              {t('customers.subtitle')}
             </p>
           </div>
           <div className="flex items-center gap-2 text-sm">
             <span className="font-medium text-[#1F2A24]">{stats.total}</span>
-            <span className="text-[#1F2A24]/40">total</span>
+            <span className="text-[#1F2A24]/40">{t('dash.customers').toLowerCase()}</span>
             <span className="w-px h-4 bg-[#1F2A24]/10" />
             <span className="font-medium text-[#C1442E]">{stats.withDebt}</span>
-            <span className="text-[#1F2A24]/40">with debt</span>
+            <span className="text-[#1F2A24]/40">{t('customers.withDebt').toLowerCase()}</span>
           </div>
         </div>
 
         {/* Quick Stats */}
         <div className="mt-4 grid grid-cols-3 gap-3">
           <div className="rounded-xl bg-[#FBF9F5] p-3 text-center">
-            <p className="text-xs text-[#1F2A24]/40">Total Debt</p>
+            <p className="text-xs text-[#1F2A24]/40">{t('customers.totalDebt')}</p>
             <p className="text-lg font-bold text-[#C1442E]">{formatCurrency(stats.totalDebt)}</p>
           </div>
           <div className="rounded-xl bg-[#FBF9F5] p-3 text-center">
-            <p className="text-xs text-[#1F2A24]/40">With Debt</p>
+            <p className="text-xs text-[#1F2A24]/40">{t('customers.withDebt')}</p>
             <p className="text-lg font-bold text-[#1F2A24]">{stats.withDebt}</p>
           </div>
           <div className="rounded-xl bg-[#FBF9F5] p-3 text-center">
-            <p className="text-xs text-[#1F2A24]/40">Settled</p>
+            <p className="text-xs text-[#1F2A24]/40">{t('customers.settled')}</p>
             <p className="text-lg font-bold text-[#0F6B4C]">{stats.settled}</p>
           </div>
         </div>
@@ -139,7 +147,7 @@ export default function CustomersContent({ customers, transactions }: CustomersC
           <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#1F2A24]/30" />
           <input
             type="text"
-            placeholder="Search customers…"
+            placeholder={t('common.search')}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="w-full rounded-xl border border-black/10 bg-white py-2.5 pl-10 pr-4 text-[13.5px] placeholder:text-[#1F2A24]/30 focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#0F6B4C]/40"
@@ -150,9 +158,9 @@ export default function CustomersContent({ customers, transactions }: CustomersC
           onChange={(e) => setFilter(e.target.value as any)}
           className="rounded-xl border border-black/10 bg-white px-4 py-2.5 text-[13.5px] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#0F6B4C]/40"
         >
-          <option value="all">All</option>
-          <option value="with-debt">With Debt</option>
-          <option value="settled">Settled</option>
+          <option value="all">{t('common.all')}</option>
+          <option value="with-debt">{t('customers.withDebt')}</option>
+          <option value="settled">{t('customers.settled')}</option>
         </select>
       </div>
 
@@ -161,8 +169,8 @@ export default function CustomersContent({ customers, transactions }: CustomersC
         {filtered.length === 0 ? (
           <div className="py-10 text-center text-[#1F2A24]/35">
             <Users size={30} className="mx-auto mb-2" />
-            <p className="text-[13.5px] font-medium text-[#1F2A24]/60">No customers found</p>
-            <p className="text-[12px]">Try adjusting your search or filter.</p>
+            <p className="text-[13.5px] font-medium text-[#1F2A24]/60">{t('customers.noFound')}</p>
+            <p className="text-[12px]">{t('tx.noMatchesHint')}</p>
           </div>
         ) : (
           <div className="space-y-2">
@@ -199,12 +207,12 @@ export default function CustomersContent({ customers, transactions }: CustomersC
                       </p>
                       {risk && (
                         <span className={`text-[9px] font-medium px-1.5 py-0.5 rounded-full ${risk.bg} ${risk.color}`}>
-                          {risk.label}
+                          {t(RISK_LABEL_KEYS[risk.level])}
                         </span>
                       )}
                     </div>
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11.5px] text-[#1F2A24]/45">
-                      <span>{customer.transactionCount} transactions</span>
+                      <span>{customer.transactionCount} {t('dash.transactions').toLowerCase()}</span>
                       {customer.phone && (
                         <>
                           <span className="w-0.5 h-0.5 rounded-full bg-[#1F2A24]/20" />
@@ -234,12 +242,12 @@ export default function CustomersContent({ customers, transactions }: CustomersC
                           <p className="text-[13px] font-bold text-[#C1442E]">
                             {formatCurrency(customer.totalDebt)}
                           </p>
-                          <p className="text-[10px] text-[#1F2A24]/30">due</p>
+                          <p className="text-[10px] text-[#1F2A24]/30">{t('dash.owed').toLowerCase()}</p>
                         </>
                       ) : (
                         <div className="flex items-center gap-1 text-[#0F6B4C]">
                           <CheckCircle size={14} />
-                          <span className="text-[12px] font-semibold">Settled</span>
+                          <span className="text-[12px] font-semibold">{t('customers.settled')}</span>
                         </div>
                       )}
                     </div>
@@ -253,7 +261,7 @@ export default function CustomersContent({ customers, transactions }: CustomersC
                             name: customer.name
                           })}
                           className="relative flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-100 text-emerald-700 transition-all hover:bg-emerald-200 hover:scale-105 group/btn"
-                          title="AI Debt Guardian"
+                          title={t('customers.debtGuardian')}
                         >
                           <Shield size={15} />
                           <span className="absolute -top-1 -right-1 flex h-3 w-3">
@@ -272,7 +280,7 @@ export default function CustomersContent({ customers, transactions }: CustomersC
                             `Selam ${customer.name}, this is a friendly reminder that you have an outstanding balance of ${customer.totalDebt.toLocaleString()} Br. Please let us know if you have any questions. Thank you!`
                           )}`}
                           className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#E5A823]/15 text-[#B8860B] transition hover:bg-[#E5A823]/25"
-                          title="Send SMS reminder"
+                          title={t('customers.sendSms')}
                         >
                           <MessageSquare size={15} />
                         </a>

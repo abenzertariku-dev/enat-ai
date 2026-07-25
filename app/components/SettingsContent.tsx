@@ -67,11 +67,11 @@ export default function SettingsContent({ user }: SettingsContentProps) {
 
   const submitPasswordChange = async () => {
     if (newPassword !== confirmPassword) {
-      toast.error('New passwords do not match')
+      toast.error(t('settings.passwordMismatch'))
       return
     }
     if (newPassword.length < 8) {
-      toast.error('New password must be at least 8 characters')
+      toast.error(t('settings.passwordTooShort'))
       return
     }
 
@@ -89,16 +89,16 @@ export default function SettingsContent({ user }: SettingsContentProps) {
       const data = await res.json()
 
       if (res.ok) {
-        toast.success('Password updated')
+        toast.success(t('settings.passwordUpdated'))
         setShowPasswordForm(false)
         setCurrentPassword('')
         setNewPassword('')
         setConfirmPassword('')
       } else {
-        toast.error(data.error || 'Failed to change password')
+        toast.error(data.error || t('settings.passwordFailed'))
       }
     } catch {
-      toast.error('Network error')
+      toast.error(t('common.networkError'))
     } finally {
       setIsSaving(false)
     }
@@ -114,13 +114,13 @@ export default function SettingsContent({ user }: SettingsContentProps) {
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <h3 className="mb-3 flex items-center gap-2 text-[13.5px] font-semibold text-[var(--enat-ink)]">
           <User size={16} className="text-[var(--enat-green-mid)]" />
-          Profile information
+          {t('settings.profile')}
         </h3>
         <div className="space-y-3">
-          <InfoRow icon={User} label="Name" value={user?.name || '—'} />
-          <InfoRow icon={Mail} label="Email" value={user?.email || '—'} />
-          {user?.businessName && <InfoRow icon={Building2} label="Business" value={user.businessName} />}
-          {user?.phone && <InfoRow icon={Phone} label="Phone" value={user.phone} />}
+          <InfoRow icon={User} label={t('settings.name')} value={user?.name || '—'} />
+          <InfoRow icon={Mail} label={t('settings.email')} value={user?.email || '—'} />
+          {user?.businessName && <InfoRow icon={Building2} label={t('settings.business')} value={user.businessName} />}
+          {user?.phone && <InfoRow icon={Phone} label={t('settings.phone')} value={user.phone} />}
         </div>
       </div>
 
@@ -132,8 +132,8 @@ export default function SettingsContent({ user }: SettingsContentProps) {
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[13px] font-medium text-[var(--enat-ink)]">Payment reminders</p>
-              <p className="text-[11.5px] text-[var(--muted)]">Get notified about unpaid balances</p>
+              <p className="text-[13px] font-medium text-[var(--enat-ink)]">{t('settings.reminders')}</p>
+              <p className="text-[11.5px] text-[var(--muted)]">{t('settings.remindersHint')}</p>
             </div>
             <Toggle checked={notifications} onChange={() => setNotifications((v) => !v)} />
           </div>
@@ -185,7 +185,7 @@ export default function SettingsContent({ user }: SettingsContentProps) {
       <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
         <h3 className="mb-3 flex items-center gap-2 text-[13.5px] font-semibold text-[var(--enat-ink)]">
           <Shield size={16} className="text-[var(--enat-green-mid)]" />
-          Security
+          {t('settings.security')}
         </h3>
 
         {!showPasswordForm ? (
@@ -193,28 +193,28 @@ export default function SettingsContent({ user }: SettingsContentProps) {
             onClick={() => setShowPasswordForm(true)}
             className="w-full rounded-xl bg-[var(--surface-muted)] px-4 py-3 text-left transition hover:opacity-90"
           >
-            <p className="text-[13px] font-medium text-[var(--enat-ink)]">Change password</p>
-            <p className="text-[11.5px] text-[var(--muted)]">Update your account password</p>
+            <p className="text-[13px] font-medium text-[var(--enat-ink)]">{t('settings.changePassword')}</p>
+            <p className="text-[11.5px] text-[var(--muted)]">{t('settings.changePasswordHint')}</p>
           </button>
         ) : (
           <div className="space-y-2.5 rounded-xl bg-[var(--surface-muted)] p-4">
             <input
               type="password"
-              placeholder="Current password"
+              placeholder={t('settings.currentPassword')}
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
               className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-[13.5px] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--enat-green-mid)]/40"
             />
             <input
               type="password"
-              placeholder="New password (min 8 characters)"
+              placeholder={t('settings.newPassword')}
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
               className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-[13.5px] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--enat-green-mid)]/40"
             />
             <input
               type="password"
-              placeholder="Confirm new password"
+              placeholder={t('settings.confirmNewPassword')}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-[13.5px] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--enat-green-mid)]/40"
@@ -231,7 +231,7 @@ export default function SettingsContent({ user }: SettingsContentProps) {
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-[13px] font-medium text-[var(--muted)] transition hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/5"
               >
                 <X size={14} />
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 onClick={submitPasswordChange}
@@ -239,7 +239,7 @@ export default function SettingsContent({ user }: SettingsContentProps) {
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--enat-green-mid)] px-3 py-2.5 text-[13px] font-medium text-white transition hover:opacity-90 disabled:opacity-50"
               >
                 <Check size={14} />
-                {isSaving ? 'Saving…' : 'Save'}
+                {isSaving ? t('common.saving') : t('common.save')}
               </button>
             </div>
           </div>

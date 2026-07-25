@@ -5,10 +5,12 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import toast from 'react-hot-toast'
 import BrandLogo from '@/app/components/BrandLogo'
 import { PREMIUM_PRICE_ETB } from '@/lib/subscription'
+import { useI18n } from '@/lib/i18n'
 
 function CheckoutInner() {
   const router = useRouter()
   const params = useSearchParams()
+  const { t } = useI18n()
   const provider = params.get('provider') === 'telebirr' ? 'telebirr' : 'chapa'
   const txRef = params.get('tx_ref') || ''
   const [confirming, setConfirming] = useState(false)
@@ -21,7 +23,7 @@ function CheckoutInner() {
 
   const confirm = async () => {
     if (!txRef) {
-      toast.error('Missing payment reference')
+      toast.error(t('upgrade.missingRef'))
       return
     }
     setConfirming(true)
@@ -37,13 +39,13 @@ function CheckoutInner() {
       })
       const data = await res.json()
       if (!res.ok) {
-        toast.error(data.error || 'Payment not confirmed')
+        toast.error(data.error || t('upgrade.notConfirmed'))
         return
       }
-      toast.success('Premium activated!')
+      toast.success(t('upgrade.activated'))
       router.replace('/dashboard')
     } catch {
-      toast.error('Network error')
+      toast.error(t('common.networkError'))
     } finally {
       setConfirming(false)
     }
@@ -55,9 +57,9 @@ function CheckoutInner() {
         <div className="mb-5 flex justify-center">
           <BrandLogo size={64} />
         </div>
-        <h1 className="text-center text-xl font-bold text-[var(--enat-ink)]">Complete payment</h1>
+        <h1 className="text-center text-xl font-bold text-[var(--enat-ink)]">{t('upgrade.complete')}</h1>
         <p className="mt-2 text-center text-sm text-[var(--muted)]">
-          ENAT AI Premium — {PREMIUM_PRICE_ETB} ETB / month
+          {t('upgrade.premiumMonth', { price: PREMIUM_PRICE_ETB })}
         </p>
 
         <div className="mt-6 flex justify-center">
@@ -71,14 +73,10 @@ function CheckoutInner() {
 
         <div className="mt-5 rounded-xl bg-[var(--surface-muted)] p-4 text-[13px] text-[var(--muted)]">
           {provider === 'chapa' ? (
-            <p>
-              Simulated Chapa checkout (add <code className="text-[var(--enat-ink)]">CHAPA_SECRET_KEY</code> in
-              `.env` for live Chapa). Confirm below after paying.
-            </p>
+            <p>{t('upgrade.chapaHint')}</p>
           ) : (
             <p>
-              Open Telebirr on your phone and complete the {PREMIUM_PRICE_ETB} ETB payment, then confirm below.
-              Reference: <span className="font-mono text-[var(--enat-ink)]">{txRef || '—'}</span>
+              {t('upgrade.telebirrHint', { price: PREMIUM_PRICE_ETB, ref: txRef || '—' })}
             </p>
           )}
         </div>
@@ -89,14 +87,14 @@ function CheckoutInner() {
           onClick={confirm}
           className="mt-5 w-full rounded-xl bg-[var(--enat-green-mid)] py-3 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
         >
-          {confirming ? 'Confirming…' : 'I paid — activate Premium'}
+          {confirming ? t('upgrade.confirming') : t('upgrade.confirmPaid')}
         </button>
         <button
           type="button"
           onClick={() => router.push('/dashboard')}
           className="mt-2 w-full rounded-xl py-2.5 text-sm font-medium text-[var(--muted)] hover:text-[var(--enat-ink)]"
         >
-          Back to dashboard
+          {t('upgrade.backDash')}
         </button>
       </div>
     </div>
@@ -104,11 +102,14 @@ function CheckoutInner() {
 }
 
 export default function CheckoutPage() {
+  const { t } = useI18n()
+
   return (
     <Suspense
       fallback={
         <div className="flex min-h-screen items-center justify-center bg-[var(--background)]">
           <div className="h-10 w-10 animate-spin rounded-full border-[3px] border-[var(--enat-green-mid)]/20 border-t-[var(--enat-green-mid)]" />
+          <p className="sr-only">{t('common.loading')}</p>
         </div>
       }
     >

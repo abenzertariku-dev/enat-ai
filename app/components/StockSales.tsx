@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { ShoppingCart, Search, Minus, Plus, Check, X } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useI18n } from '@/lib/i18n'
 
 interface StockItem {
   id: string
@@ -18,6 +19,7 @@ interface StockSalesProps {
 }
 
 export default function StockSales({ items, onSaleComplete }: StockSalesProps) {
+  const { t } = useI18n()
   const [search, setSearch] = useState('')
   const [selectedItems, setSelectedItems] = useState<{ id: string; quantity: number }[]>([])
   const [isLoading, setIsLoading] = useState(false)
@@ -58,7 +60,7 @@ export default function StockSales({ items, onSaleComplete }: StockSalesProps) {
 
   const handleSubmitSales = async () => {
     if (selectedItems.length === 0) {
-      toast.error('Please select at least one item')
+      toast.error(t('stock.selectOneItem'))
       return
     }
 
@@ -83,21 +85,21 @@ export default function StockSales({ items, onSaleComplete }: StockSalesProps) {
       const data = await res.json()
 
       if (res.ok) {
-        toast.success(`✅ ${data.results.filter(r => r.success).length} sales recorded!`)
+        toast.success(`✅ ${t('stock.salesRecorded', { n: data.results.filter((r: { success: boolean }) => r.success).length })}`)
         setSelectedItems([])
         onSaleComplete()
       } else {
-        toast.error(data.error || 'Failed to record sales')
+        toast.error(data.error || t('stock.recordFailed'))
       }
     } catch (error) {
-      toast.error('Network error')
+      toast.error(t('common.networkError'))
     } finally {
       setIsLoading(false)
     }
   }
 
   const getItemName = (id: string) => {
-    return items.find(i => i.id === id)?.name || 'Unknown'
+    return items.find(i => i.id === id)?.name || t('common.unknown')
   }
 
   const getItemPrice = (id: string) => {
@@ -107,14 +109,13 @@ export default function StockSales({ items, onSaleComplete }: StockSalesProps) {
   return (
     <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm">
       <div className="grid md:grid-cols-2 gap-6">
-        {/* Available Items */}
         <div>
-          <h3 className="font-semibold text-[#1F2A24] mb-3">Available Items</h3>
+          <h3 className="font-semibold text-[#1F2A24] mb-3">{t('stock.availableItems')}</h3>
           <div className="relative mb-3">
             <Search size={17} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#1F2A24]/30" />
             <input
               type="text"
-              placeholder="Search items..."
+              placeholder={t('stock.searchItems')}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               className="w-full rounded-xl border border-black/10 bg-[#FBF9F5] py-2.5 pl-10 pr-4 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
@@ -138,7 +139,7 @@ export default function StockSales({ items, onSaleComplete }: StockSalesProps) {
                     {item.name}
                   </p>
                   <p className="text-xs text-[#1F2A24]/40">
-                    {item.quantity} {item.unit} available
+                    {t('stock.available', { n: item.quantity, unit: item.unit })}
                   </p>
                 </div>
                 <div className="text-right">
@@ -146,7 +147,7 @@ export default function StockSales({ items, onSaleComplete }: StockSalesProps) {
                     {item.sellingPrice} Br
                   </p>
                   {item.quantity <= 0 && (
-                    <span className="text-xs text-red-500">Out of stock</span>
+                    <span className="text-xs text-red-500">{t('stock.outOfStock')}</span>
                   )}
                 </div>
               </button>
@@ -154,17 +155,16 @@ export default function StockSales({ items, onSaleComplete }: StockSalesProps) {
           </div>
         </div>
 
-        {/* Selected Items */}
         <div>
           <h3 className="font-semibold text-[#1F2A24] mb-3">
-            Selected Items ({selectedItems.length})
+            {t('stock.selectedItems', { n: selectedItems.length })}
           </h3>
 
           {selectedItems.length === 0 ? (
             <div className="text-center py-8 text-[#1F2A24]/35">
               <ShoppingCart size={30} className="mx-auto mb-2" />
-              <p>No items selected</p>
-              <p className="text-sm">Click on items to add to sale</p>
+              <p>{t('stock.noItemsSelected')}</p>
+              <p className="text-sm">{t('stock.clickToAdd')}</p>
             </div>
           ) : (
             <div className="space-y-2 max-h-72 overflow-y-auto">
@@ -202,7 +202,7 @@ export default function StockSales({ items, onSaleComplete }: StockSalesProps) {
           {selectedItems.length > 0 && (
             <div className="mt-4">
               <div className="flex justify-between items-center p-3 bg-gray-50 rounded-xl">
-                <span className="font-medium text-[#1F2A24]">Total</span>
+                <span className="font-medium text-[#1F2A24]">{t('stock.total')}</span>
                 <span className="font-bold text-emerald-600">
                   {selectedItems.reduce((sum, s) => {
                     const item = items.find(i => i.id === s.id)
@@ -216,7 +216,7 @@ export default function StockSales({ items, onSaleComplete }: StockSalesProps) {
                 className="w-full mt-3 px-6 py-3 bg-emerald-600 text-white rounded-xl font-medium hover:bg-emerald-700 transition disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 <Check size={18} />
-                {isLoading ? 'Recording...' : `Record Sale (${selectedItems.length} items)`}
+                {isLoading ? t('stock.recording') : t('stock.recordSaleCount', { n: selectedItems.length })}
               </button>
             </div>
           )}

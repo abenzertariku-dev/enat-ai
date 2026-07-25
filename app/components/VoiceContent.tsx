@@ -3,6 +3,7 @@
 import { useState, useRef } from 'react'
 import { Mic, MicOff, Play, Square, Check, X, RefreshCw, AlertCircle, Clock } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useI18n } from '@/lib/i18n'
 
 interface VoiceContentProps {
   onAudioRecorded: (audioBlob: Blob) => Promise<void>
@@ -17,6 +18,7 @@ interface VoiceContentProps {
 }
 
 export default function VoiceContent({ onAudioRecorded, isLoading, lastResult }: VoiceContentProps) {
+  const { t } = useI18n()
   const [isRecording, setIsRecording] = useState(false)
   const [recordingTime, setRecordingTime] = useState(0)
   const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
@@ -60,13 +62,13 @@ export default function VoiceContent({ onAudioRecorded, isLoading, lastResult }:
         setRecordingTime(prev => prev + 1)
       }, 1000)
 
-      toast.success('🎙️ Recording... Speak clearly', {
+      toast.success(t('voice.recording'), {
         icon: '🎙️',
         duration: 3000,
       })
     } catch (error) {
       console.error('Microphone Error:', error)
-      toast.error('Could not access microphone. Please check permissions.')
+      toast.error(t('voice.micError'))
     }
   }
 
@@ -107,9 +109,9 @@ export default function VoiceContent({ onAudioRecorded, isLoading, lastResult }:
       if (res.ok) {
         // Show review screen with extracted data
         setReviewData({
-          transcript: data.transcript || 'No transcription available',
-          customerName: data.extracted?.customerName || 'Unknown',
-          product: data.extracted?.product || 'Unknown',
+          transcript: data.transcript || t('common.unknown'),
+          customerName: data.extracted?.customerName || t('common.unknown'),
+          product: data.extracted?.product || t('common.unknown'),
           amount: data.extracted?.amount || 0,
           type: data.extracted?.type || 'credit',
           description: data.extracted?.description || '',
@@ -118,13 +120,13 @@ export default function VoiceContent({ onAudioRecorded, isLoading, lastResult }:
         })
         setShowReview(true)
       } else {
-        toast.error(data.error || 'Failed to process voice')
+        toast.error(data.error || t('toast.voiceFail'))
         // Reset so user can try again
         setAudioBlob(null)
       }
     } catch (error) {
       console.error('Process Error:', error)
-      toast.error('Network error. Please try again.')
+      toast.error(t('common.networkError'))
     } finally {
       setIsProcessing(false)
     }
@@ -141,12 +143,12 @@ export default function VoiceContent({ onAudioRecorded, isLoading, lastResult }:
       setShowReview(false)
       setAudioBlob(null)
       setReviewData(null)
-      toast.success('✅ Transaction saved successfully!', {
+      toast.success(t('toast.voiceOk'), {
         icon: '✅',
         duration: 3000,
       })
     } catch (error) {
-      toast.error('Failed to save transaction')
+      toast.error(t('toast.txFailed'))
     } finally {
       setIsProcessing(false)
     }
@@ -157,7 +159,7 @@ export default function VoiceContent({ onAudioRecorded, isLoading, lastResult }:
     setShowReview(false)
     setAudioBlob(null)
     setReviewData(null)
-    toast('Recording cancelled', {
+    toast(t('voice.cancelRec'), {
       icon: 'ℹ️',
       duration: 3000,
     })
@@ -187,10 +189,10 @@ export default function VoiceContent({ onAudioRecorded, isLoading, lastResult }:
       <div className="bg-white rounded-2xl border border-black/5 p-6 shadow-sm">
         <h2 className="text-lg font-bold tracking-tight text-[#1F2A24] flex items-center gap-2">
           <Mic className="text-emerald-600" size={20} />
-          Voice to Ledger
+          {t('voice.title')}
         </h2>
         <p className="mt-1 text-sm text-[#1F2A24]/50">
-          {isRecording ? '🔴 Recording...' : 'Speak in Amharic or English to add transactions'}
+          {isRecording ? `🔴 ${t('voice.recording')}` : t('voice.subtitle')}
         </p>
       </div>
 
@@ -205,7 +207,7 @@ export default function VoiceContent({ onAudioRecorded, isLoading, lastResult }:
                   <div className="w-3 h-3 rounded-full bg-red-500 animate-pulse" />
                   <span className="text-sm font-mono text-gray-600">{formatTime(recordingTime)}</span>
                 </div>
-                <span className="text-sm text-gray-400">• Recording</span>
+                <span className="text-sm text-gray-400">• {t('voice.recording')}</span>
               </div>
             )}
 
@@ -235,10 +237,10 @@ export default function VoiceContent({ onAudioRecorded, isLoading, lastResult }:
             </button>
 
             <p className="mt-4 text-sm font-medium text-[#1F2A24]">
-              {isRecording ? '🔴 Tap to stop' : '🎤 Tap to start recording'}
+              {isRecording ? `🔴 ${t('voice.tapStop')}` : `🎤 ${t('voice.tapStart')}`}
             </p>
             <p className="text-xs text-[#1F2A24]/40 mt-1">
-              {isRecording ? 'Recording... Speak clearly' : 'Supports Amharic and English'}
+              {isRecording ? t('voice.recording') : t('voice.subtitle')}
             </p>
 
             {isRecording && (
@@ -246,7 +248,7 @@ export default function VoiceContent({ onAudioRecorded, isLoading, lastResult }:
                 onClick={stopRecording}
                 className="mt-4 text-xs text-red-500 hover:text-red-600 font-medium"
               >
-                Cancel Recording
+                {t('voice.cancelRec')}
               </button>
             )}
           </div>
@@ -254,7 +256,7 @@ export default function VoiceContent({ onAudioRecorded, isLoading, lastResult }:
           {/* Previous Result */}
           {lastResult && !isRecording && !showReview && (
             <div className="mt-6 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-left">
-              <p className="text-xs text-emerald-600 font-medium">Last recorded</p>
+              <p className="text-xs text-emerald-600 font-medium">{t('voice.heard')}</p>
               <div className="flex items-center gap-2 mt-1">
                 <span className="font-medium text-[#1F2A24]">{lastResult.customerName}</span>
                 <span className="text-[#1F2A24]/30">•</span>
@@ -264,7 +266,7 @@ export default function VoiceContent({ onAudioRecorded, isLoading, lastResult }:
                 <span className={`text-xs px-1.5 py-0.5 rounded ${
                   lastResult.type === 'credit' ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-emerald-600'
                 }`}>
-                  {lastResult.type === 'credit' ? 'Credit' : 'Paid'}
+                  {lastResult.type === 'credit' ? t('common.credit') : t('common.debit')}
                 </span>
               </div>
             </div>
@@ -277,8 +279,8 @@ export default function VoiceContent({ onAudioRecorded, isLoading, lastResult }:
         <div className="bg-white rounded-2xl border border-black/5 p-12 shadow-sm text-center">
           <div className="flex flex-col items-center">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-600" />
-            <p className="mt-4 font-medium text-[#1F2A24]">Analyzing your voice...</p>
-            <p className="text-sm text-[#1F2A24]/40">AI is extracting the transaction</p>
+            <p className="mt-4 font-medium text-[#1F2A24]">{t('voice.analyzing')}</p>
+            <p className="text-sm text-[#1F2A24]/40">{t('voice.subtitle')}</p>
           </div>
         </div>
       )}
@@ -288,38 +290,38 @@ export default function VoiceContent({ onAudioRecorded, isLoading, lastResult }:
         <div className="bg-white rounded-2xl border border-black/5 p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-4">
             <AlertCircle className="text-emerald-600" size={20} />
-            <h3 className="font-bold text-[#1F2A24]">Review Transaction</h3>
+            <h3 className="font-bold text-[#1F2A24]">{t('voice.review')}</h3>
             <span className="text-xs text-[#1F2A24]/40 ml-auto">
-              {Math.round((reviewData.confidence || 0.85) * 100)}% confidence
+              {Math.round((reviewData.confidence || 0.85) * 100)}%
             </span>
           </div>
 
           {/* Transcript */}
           <div className="bg-gray-50 rounded-xl p-4 mb-4">
-            <p className="text-xs text-[#1F2A24]/40 mb-1">📝 What we heard:</p>
-            <p className="text-sm text-[#1F2A24] font-medium">"{reviewData.transcript}"</p>
+            <p className="text-xs text-[#1F2A24]/40 mb-1">{t('voice.heard')}</p>
+            <p className="text-sm text-[#1F2A24] font-medium">&quot;{reviewData.transcript}&quot;</p>
           </div>
 
           {/* Extracted Data */}
           <div className="grid grid-cols-2 gap-3 mb-4">
             <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-[10px] text-[#1F2A24]/40">Customer</p>
+              <p className="text-[10px] text-[#1F2A24]/40">{t('voice.customer')}</p>
               <p className="font-medium text-[#1F2A24]">{reviewData.customerName}</p>
             </div>
             <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-[10px] text-[#1F2A24]/40">Product</p>
+              <p className="text-[10px] text-[#1F2A24]/40">{t('voice.product')}</p>
               <p className="font-medium text-[#1F2A24]">{reviewData.product}</p>
             </div>
             <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-[10px] text-[#1F2A24]/40">Amount</p>
+              <p className="text-[10px] text-[#1F2A24]/40">{t('voice.amount')}</p>
               <p className="font-bold text-emerald-600">{reviewData.amount} Br</p>
             </div>
             <div className="bg-gray-50 rounded-lg p-3">
-              <p className="text-[10px] text-[#1F2A24]/40">Type</p>
+              <p className="text-[10px] text-[#1F2A24]/40">{t('voice.type')}</p>
               <p className={`font-medium ${
                 reviewData.type === 'credit' ? 'text-red-600' : 'text-emerald-600'
               }`}>
-                {reviewData.type === 'credit' ? '🔴 Credit (customer owes)' : '🟢 Paid'}
+                {reviewData.type === 'credit' ? t('common.credit') : t('common.debit')}
               </p>
             </div>
           </div>
@@ -340,7 +342,7 @@ export default function VoiceContent({ onAudioRecorded, isLoading, lastResult }:
               className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-black/10 text-[#1F2A24]/60 hover:bg-gray-50 transition disabled:opacity-50"
             >
               <X size={16} />
-              Cancel
+              {t('common.cancel')}
             </button>
             <button
               onClick={handleRetry}
@@ -348,7 +350,7 @@ export default function VoiceContent({ onAudioRecorded, isLoading, lastResult }:
               className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border border-black/10 text-blue-600 hover:bg-blue-50 transition disabled:opacity-50"
             >
               <RefreshCw size={16} />
-              Retry
+              {t('voice.retry')}
             </button>
             <button
               onClick={handleSubmit}
@@ -356,7 +358,7 @@ export default function VoiceContent({ onAudioRecorded, isLoading, lastResult }:
               className="flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 transition disabled:opacity-50"
             >
               <Check size={16} />
-              {isProcessing ? 'Saving...' : 'Submit'}
+              {isProcessing ? t('common.saving') : t('voice.submit')}
             </button>
           </div>
         </div>
@@ -364,11 +366,11 @@ export default function VoiceContent({ onAudioRecorded, isLoading, lastResult }:
 
       {/* Help Text */}
       <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
-        <h3 className="font-medium text-purple-800 text-sm">💡 Example phrases</h3>
+        <h3 className="font-medium text-purple-800 text-sm">{t('voice.examples')}</h3>
         <ul className="text-sm text-purple-700 space-y-1 list-disc list-inside mt-1">
-          <li>"[Customer] bought 2 bags of teff on credit for 16000"</li>
-          <li>"Almaz paid 500 Birr for coffee"</li>
-          <li>"Tadesse owes 3000 Birr for sugar"</li>
+          <li>&quot;{t('voice.example1')}&quot;</li>
+          <li>&quot;Almaz paid 500 Birr for coffee&quot;</li>
+          <li>&quot;Tadesse owes 3000 Birr for sugar&quot;</li>
         </ul>
       </div>
     </div>
