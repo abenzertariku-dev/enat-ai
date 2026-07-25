@@ -178,37 +178,55 @@ export async function PUT(req: NextRequest) {
     }
 
     const { id, ...data } = await req.json()
+    const quantityPayload = data.quantity
+    const isIncrement =
+      quantityPayload !== null &&
+      typeof quantityPayload === 'object' &&
+      'increment' in quantityPayload
+    const incrementBy = isIncrement ? Number((quantityPayload as { increment: number }).increment) : null
 
     if (!id) {
       return NextResponse.json({ error: 'Item ID required' }, { status: 400 })
     }
 
-    // Use transaction for consistency
     const item = await prisma.$transaction(async (tx) => {
+      const existing = await tx.stockItem.findFirst({ where: { id, userId } })
+      if (!existing) {
+        throw new Error('Item not found')
+      }
+
+      let updateData = { ...data }
+      if (isIncrement && incrementBy !== null && !Number.isNaN(incrementBy)) {
+        const nextQty = Math.max(0, existing.quantity + incrementBy)
+        updateData = { ...data, quantity: nextQty }
+      }
+
       const updated = await tx.stockItem.update({
         where: { id },
-        data,
+        data: updateData,
       })
 
-      // ✅ Create transaction for stock update (if quantity changed)
       if (data.quantity !== undefined) {
+        const delta = isIncrement
+          ? (incrementBy ?? 0)
+          : Number(data.quantity) - existing.quantity
+
         await tx.transaction.create({
           data: {
             userId,
             customerId: null,
             product: updated.name,
-            quantity: data.quantity || 0,
+            quantity: Math.abs(delta) || 0,
             amount: 0,
             type: 'debit',
             status: 'paid',
-            description: `📝 Updated stock: ${updated.name} to ${data.quantity} ${updated.unit || 'units'}`,
+            description: `📝 Updated stock: ${updated.name} to ${updated.quantity} ${updated.unit || 'units'}`,
             source: 'stock_in',
             stockItemId: id,
-          }
+          },
         })
       }
 
-      // Check stock level after update
       await checkStockLevel(tx, userId, id)
       return updated
     })
@@ -216,6 +234,9 @@ export async function PUT(req: NextRequest) {
     return NextResponse.json({ success: true, item })
   } catch (error) {
     console.error('Stock PUT Error:', error)
+    if (String(error).includes('Item not found')) {
+      return NextResponse.json({ error: 'Item not found' }, { status: 404 })
+    }
     return NextResponse.json({ error: 'Server error' }, { status: 500 })
   }
 }

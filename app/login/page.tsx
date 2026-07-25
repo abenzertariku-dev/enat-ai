@@ -1,34 +1,39 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
+import Link from 'next/link'
 import { Eye, EyeOff, MapPin, Building2, Users, AlertCircle } from 'lucide-react'
+import BrandLogo from '@/app/components/BrandLogo'
+import ThemeToggle from '@/app/components/ThemeToggle'
+import LanguageToggle from '@/app/components/LanguageToggle'
+import { useI18n } from '@/lib/i18n'
 
 const MIN_PASSWORD_LENGTH = 8
 
 // ─── Dropdown Options ────────────────────────────────────────────────
 
 const BUSINESS_TYPES = [
-  { value: 'coffee-shop', label: '☕ Coffee Shop' },
-  { value: 'restaurant', label: '🍽️ Restaurant' },
-  { value: 'shop', label: '🛍️ Shop / Retail' },
-  { value: 'teff-seller', label: '🌾 Teff / Grain Seller' },
-  { value: 'kiosk', label: '🏪 Kiosk / Convenience Store' },
-  { value: 'grocery', label: '🛒 Grocery Store' },
-  { value: 'bakery', label: '🥖 Bakery' },
-  { value: 'butcher', label: '🥩 Butcher / Meat Shop' },
-  { value: 'vegetable', label: '🥬 Vegetable / Fruit Seller' },
-  { value: 'clothing', label: '👕 Clothing / Fashion Shop' },
-  { value: 'electronics', label: '📱 Electronics / Mobile Shop' },
-  { value: 'hardware', label: '🔧 Hardware / Construction' },
-  { value: 'pharmacy', label: '💊 Pharmacy / Drug Store' },
-  { value: 'salon', label: '💇 Salon / Barber' },
-  { value: 'tailor', label: '🧵 Tailor / Sewing' },
-  { value: 'transport', label: '🚐 Transport / Logistics' },
-  { value: 'wholesale', label: '📦 Wholesale Distributor' },
-  { value: 'manufacturing', label: '🏭 Small Manufacturing' },
-  { value: 'farm', label: '🌱 Farm / Agriculture' },
+  { value: 'food-wholesaler', label: '🍚 Food & Grocery Wholesaler' },
+  { value: 'beverage-wholesaler', label: '🥤 Beverage Wholesaler' },
+  { value: 'grain-wholesaler', label: '🌾 Grain & Teff Wholesaler' },
+  { value: 'flour-wholesaler', label: '🌾 Flour Wholesaler' },
+  { value: 'coffee-wholesaler', label: '☕ Coffee Wholesaler' },
+  { value: 'fruit-vegetable-wholesaler', label: '🥬 Fruit & Vegetable Wholesaler' },
+  { value: 'meat-wholesaler', label: '🥩 Meat & Livestock Wholesaler' },
+  { value: 'construction-wholesaler', label: '🧱 Construction Materials Wholesaler' },
+  { value: 'hardware-wholesaler', label: '🔧 Hardware Wholesaler' },
+  { value: 'electronics-wholesaler', label: '📱 Electronics Wholesaler' },
+  { value: 'mobile-accessories', label: '📲 Mobile Accessories Wholesaler' },
+  { value: 'clothing-wholesaler', label: '👕 Clothing & Textile Wholesaler' },
+  { value: 'shoe-wholesaler', label: '👟 Shoes & Footwear Wholesaler' },
+  { value: 'cosmetics-wholesaler', label: '💄 Cosmetics & Beauty Wholesaler' },
+  { value: 'pharmaceutical-wholesaler', label: '💊 Pharmaceutical Wholesaler' },
+  { value: 'stationery-wholesaler', label: '📚 Stationery & Office Supplies Wholesaler' },
+  { value: 'plastic-wholesaler', label: '🪣 Plastic & Household Goods Wholesaler' },
+  { value: 'chemical-wholesaler', label: '🧪 Chemical & Cleaning Supplies Wholesaler' },
+  { value: 'agricultural-inputs', label: '🌱 Agricultural Inputs Wholesaler' },
   { value: 'other', label: '📌 Other (please specify)' },
 ]
 
@@ -59,17 +64,6 @@ const CHALLENGES = [
 
 // ─── Components ──────────────────────────────────────────────────────
 
-function LedgerMark({ size = 44 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-hidden="true">
-      <circle cx="20" cy="20" r="19" stroke="#E5A823" strokeWidth="1.5" />
-      <path d="M20 6a14 14 0 1 0 0 28 14 14 0 0 0 0-28Z" fill="#0F6B4C" />
-      <path d="M8 20a12 12 0 0 1 12-12v24A12 12 0 0 1 8 20Z" fill="#0B5A3F" />
-      <path d="M13 15h14M13 20h14M13 25h9" stroke="#FBF9F5" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  )
-}
-
 function Field({
   label,
   required,
@@ -83,8 +77,8 @@ function Field({
 }) {
   return (
     <div>
-      <label className="mb-1 flex items-center gap-1.5 text-[13px] font-medium text-[#1F2A24]/70">
-        {icon && <span className="text-[#1F2A24]/40">{icon}</span>}
+      <label className="mb-1 flex items-center gap-1.5 text-[13px] font-medium text-[var(--muted)]">
+        {icon && <span className="opacity-60">{icon}</span>}
         {label} {required && <span className="text-[#C1442E]">*</span>}
       </label>
       {children}
@@ -93,15 +87,16 @@ function Field({
 }
 
 const inputClass =
-  'w-full rounded-xl border border-black/10 px-4 py-2.5 text-[14px] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#0F6B4C]/40'
+  'w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-[14px] text-[var(--enat-ink)] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--enat-green-mid)]/40'
 
 const selectClass =
-  'w-full rounded-xl border border-black/10 px-4 py-2.5 text-[14px] bg-white focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#0F6B4C]/40 appearance-none'
+  'w-full rounded-xl border border-[var(--border)] bg-[var(--surface)] px-4 py-2.5 text-[14px] text-[var(--enat-ink)] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--enat-green-mid)]/40 appearance-none'
 
 // ─── Main Component ──────────────────────────────────────────────────
 
 export default function LoginPage() {
   const router = useRouter()
+  const { t } = useI18n()
   const [isLogin, setIsLogin] = useState(true)
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -125,6 +120,12 @@ export default function LoginPage() {
     challenge: '',
     challengeOther: '',
   })
+
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get('mode') === 'signup') {
+      setIsLogin(false)
+    }
+  }, [])
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target
@@ -177,7 +178,7 @@ export default function LoginPage() {
           localStorage.setItem('token', data.token)
           localStorage.setItem('user', JSON.stringify(data.user))
           toast.success('Welcome back! 🎉')
-          router.push('/')
+          router.push('/dashboard')
         } else {
           toast.success('🎉 Account created successfully! Please sign in.')
           setIsLogin(true)
@@ -218,18 +219,25 @@ export default function LoginPage() {
 
   if (isLogin) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F4F1EA] p-4">
-        <div className="w-full max-w-md rounded-2xl border border-black/5 bg-white p-8 shadow-[0_4px_24px_rgba(31,42,36,0.08)]">
+      <div className="relative flex min-h-screen items-center justify-center bg-[var(--background)] p-4">
+        <div className="absolute right-4 top-4 flex items-center gap-2">
+          <LanguageToggle className="border-[var(--border)] bg-[var(--surface)] text-[var(--enat-ink)]" />
+          <ThemeToggle className="border-[var(--border)] bg-[var(--surface)] text-[var(--enat-ink)]" />
+        </div>
+        <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-8 shadow-[0_4px_24px_rgba(31,42,36,0.08)]">
           <div className="mb-7 text-center">
-            <div className="mb-3 flex justify-center">
-              <LedgerMark />
-            </div>
-            <h1 className="font-serif text-2xl font-bold tracking-tight text-[#1F2A24]">EthioGenz</h1>
-            <p className="mt-2 text-[14px] text-[#1F2A24]/60">Welcome back</p>
+            <Link href="/" className="mb-3 flex justify-center" aria-label="Back to ENAT AI home">
+              <BrandLogo size={72} />
+            </Link>
+            <h1 className="text-2xl font-bold tracking-tight">
+              <span className="text-[var(--enat-green)] dark:text-[#7dcea0]">ENAT</span>{' '}
+              <span className="text-[#B88A44]">AI</span>
+            </h1>
+            <p className="mt-2 text-[14px] text-[var(--muted)]">{t('login.welcome')}</p>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-3.5">
-            <Field label="Email address" required>
+            <Field label={t('login.email')} required>
               <input
                 type="email"
                 name="email"
@@ -241,7 +249,7 @@ export default function LoginPage() {
               />
             </Field>
 
-            <Field label="Password" required>
+            <Field label={t('login.password')} required>
               <div className="relative">
                 <input
                   type={showPassword ? 'text' : 'password'}
@@ -255,7 +263,7 @@ export default function LoginPage() {
                 <button
                   type="button"
                   onClick={() => setShowPassword((v) => !v)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[#1F2A24]/35 hover:text-[#1F2A24]/60"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)] hover:text-[var(--enat-ink)]"
                   tabIndex={-1}
                 >
                   {showPassword ? <EyeOff size={17} /> : <Eye size={17} />}
@@ -266,15 +274,15 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full rounded-xl bg-[#0F6B4C] py-3 font-semibold text-white transition hover:bg-[#0B5A3F] disabled:opacity-50"
+              className="w-full rounded-xl bg-[var(--enat-green-mid)] py-3 font-semibold text-white transition hover:opacity-90 disabled:opacity-50"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" />
-                  Loading…
+                  {t('login.loading')}
                 </span>
               ) : (
-                'Sign in'
+                t('login.signIn')
               )}
             </button>
           </form>
@@ -287,16 +295,10 @@ export default function LoginPage() {
                 setFormData((f) => ({ ...f, password: '' }))
                 setConfirmPassword('')
               }}
-              className="text-[13px] font-medium text-[#0F6B4C] hover:text-[#0B5A3F]"
+              className="text-[13px] font-medium text-[var(--enat-green-mid)] hover:opacity-80"
             >
-              Don't have an account? Sign up
+              {t('login.noAccount')}
             </button>
-          </div>
-
-          <div className="mt-4 rounded-xl border border-[#E5A823]/25 bg-[#E5A823]/[0.08] p-3">
-            <p className="text-center text-[11.5px] text-[#B8860B]">
-              🔐 Demo: Use any email — 8+ character password
-            </p>
           </div>
         </div>
       </div>
@@ -306,14 +308,23 @@ export default function LoginPage() {
   // ─── Registration Mode ─────────────────────────────────────────────
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#F4F1EA] p-4">
-      <div className="w-full max-w-md rounded-2xl border border-black/5 bg-white p-8 shadow-[0_4px_24px_rgba(31,42,36,0.08)]">
+    <div className="relative flex min-h-screen items-center justify-center bg-[var(--background)] p-4">
+      <div className="absolute right-4 top-4 flex items-center gap-2">
+        <LanguageToggle className="border-[var(--border)] bg-[var(--surface)] text-[var(--enat-ink)]" />
+        <ThemeToggle className="border-[var(--border)] bg-[var(--surface)] text-[var(--enat-ink)]" />
+      </div>
+      <div className="w-full max-w-md rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-8 shadow-[0_4px_24px_rgba(31,42,36,0.08)]">
         <div className="mb-6 text-center">
           <div className="mb-3 flex justify-center">
-            <LedgerMark />
+            <Link href="/" aria-label="Back to ENAT AI home">
+              <BrandLogo size={72} />
+            </Link>
           </div>
-          <h1 className="font-serif text-2xl font-bold tracking-tight text-[#1F2A24]">EthioGenz</h1>
-          <p className="mt-1 text-[14px] text-[#1F2A24]/60">Create your account</p>
+          <h1 className="text-2xl font-bold tracking-tight">
+            <span className="text-[var(--enat-green)] dark:text-[#7dcea0]">ENAT</span>{' '}
+            <span className="text-[#B88A44]">AI</span>
+          </h1>
+          <p className="mt-1 text-[14px] text-[var(--muted)]">{t('login.create')}</p>
           <div className="mt-2 flex items-center justify-center gap-2">
             <span className={`text-xs font-medium ${step === 1 ? 'text-[#0F6B4C]' : 'text-[#1F2A24]/30'}`}>
               Step 1: Basic Info
@@ -424,9 +435,9 @@ export default function LoginPage() {
           {/* ─── STEP 2: Business Details ────────────────────────────── */}
           {step === 2 && (
             <>
-              <div className="rounded-xl bg-[#0F6B4C]/[0.05] border border-[#0F6B4C]/20 p-3">
-                <p className="text-xs text-[#1F2A24]/60">
-                  👋 Tell us about your business so we can tailor EthioGenz for you
+              <div className="rounded-xl bg-[var(--enat-green-mid)]/[0.08] border border-[var(--enat-green-mid)]/20 p-3">
+                <p className="text-xs text-[var(--muted)]">
+                  Tell us about your business so we can tailor ENAT AI for you
                 </p>
               </div>
 
@@ -569,9 +580,9 @@ export default function LoginPage() {
               setConfirmPassword('')
               setStep(1)
             }}
-            className="text-[13px] font-medium text-[#0F6B4C] hover:text-[#0B5A3F]"
+            className="text-[13px] font-medium text-[var(--enat-green-mid)] hover:opacity-80"
           >
-            Already have an account? Sign in
+            {t('login.hasAccount')}
           </button>
         </div>
       </div>

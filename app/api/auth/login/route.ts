@@ -2,11 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
+import { getSubscriptionSnapshot, trialEndFrom } from '@/lib/subscription'
 
-// A real bcrypt hash of an unguessable, unused value — computed once at module
-// load — used only to keep "user not found" timing in line with "wrong
-// password" below. (A hand-written fake hash string would make bcrypt.compare
-// throw, since it isn't valid bcrypt output — has to be generated for real.)
 const DUMMY_HASH = bcrypt.hashSync('no-such-user-timing-guard', 10)
 
 export async function POST(req: NextRequest) {
@@ -19,7 +16,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
     }
 
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { email },
       select: {
         id: true,
@@ -28,18 +25,44 @@ export async function POST(req: NextRequest) {
         businessName: true,
         phone: true,
         password: true,
+        plan: true,
+        subscriptionStatus: true,
+        trialEndsAt: true,
+        premiumUntil: true,
         createdAt: true,
         updatedAt: true,
       },
     })
 
-    // Always run bcrypt.compare, even when there's no user, so a missing
-    // account doesn't respond measurably faster than a wrong password —
-    // otherwise response time alone reveals which emails are registered.
     const isValid = await bcrypt.compare(password, user?.password ?? DUMMY_HASH)
 
     if (!user || !isValid) {
       return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })
+    }
+
+    if (!user.trialEndsAt) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          plan: user.plan || 'trial',
+          subscriptionStatus: user.subscriptionStatus || 'trialing',
+          trialEndsAt: trialEndFrom(user.createdAt),
+        },
+        select: {
+          id: true,
+          email: true,
+          name: true,
+          businessName: true,
+          phone: true,
+          password: true,
+          plan: true,
+          subscriptionStatus: true,
+          trialEndsAt: true,
+          premiumUntil: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      })
     }
 
     const token = jwt.sign({ userId: user.id, email: user.email }, process.env.JWT_SECRET!, {
@@ -52,6 +75,7 @@ export async function POST(req: NextRequest) {
       success: true,
       token,
       user: userWithoutPassword,
+      subscription: getSubscriptionSnapshot(user),
     })
   } catch (error) {
     console.error('Login Error:', error)

@@ -366,7 +366,7 @@ export default function VoiceContent({ onAudioRecorded, isLoading, lastResult }:
       <div className="bg-purple-50 border border-purple-200 rounded-xl p-4">
         <h3 className="font-medium text-purple-800 text-sm">💡 Example phrases</h3>
         <ul className="text-sm text-purple-700 space-y-1 list-disc list-inside mt-1">
-          <li>"Kebede bought 2 bags of teff on credit for 16000"</li>
+          <li>"[Customer] bought 2 bags of teff on credit for 16000"</li>
           <li>"Almaz paid 500 Birr for coffee"</li>
           <li>"Tadesse owes 3000 Birr for sugar"</li>
         </ul>

@@ -44,7 +44,7 @@ async function callGeminiAPI(prompt: string) {
   return null
 }
 
-// ─── Helper: Get Business Type Label ──────────────────────────────────
+// ─── Helper Functions ──────────────────────────────────────────────────
 
 function getBusinessTypeLabel(type: string | null | undefined): string {
   const labels: Record<string, string> = {
@@ -106,6 +106,81 @@ function getTeamSizeLabel(size: string | null | undefined): string {
   return labels[size] || size
 }
 
+// ─── Calculate Additional Metrics ─────────────────────────────────────
+
+function calculateMetrics(transactions: any[], stats: any) {
+  const totalAmount = transactions.reduce((sum, t) => sum + t.amount, 0)
+  const collectionRate = totalAmount > 0 ? (stats.totalSales / totalAmount) * 100 : 0
+  
+  // Customer analysis
+  const customerMap = new Map<string, { totalSpent: number; count: number }>()
+  transactions.forEach(t => {
+    const name = t.customer?.name || 'Unknown'
+    if (!customerMap.has(name)) {
+      customerMap.set(name, { totalSpent: 0, count: 0 })
+    }
+    const c = customerMap.get(name)!
+    c.totalSpent += t.amount
+    c.count += 1
+  })
+  
+  const topCustomers = Array.from(customerMap.entries())
+    .map(([name, data]) => ({ name, totalSpent: data.totalSpent, count: data.count }))
+    .sort((a, b) => b.totalSpent - a.totalSpent)
+    .slice(0, 5)
+
+  // Product analysis
+  const productMap = new Map<string, { revenue: number; count: number }>()
+  transactions.forEach(t => {
+    if (!productMap.has(t.product)) {
+      productMap.set(t.product, { revenue: 0, count: 0 })
+    }
+    const p = productMap.get(t.product)!
+    p.revenue += t.amount
+    p.count += 1
+  })
+  
+  const topProducts = Array.from(productMap.entries())
+    .map(([name, data]) => ({ name, revenue: data.revenue, count: data.count }))
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5)
+
+  // Source distribution
+  const sourceMap = new Map<string, number>()
+  transactions.forEach(t => {
+    const source = t.source || 'unknown'
+    sourceMap.set(source, (sourceMap.get(source) || 0) + 1)
+  })
+
+  // Monthly trend
+  const monthlyData = [...Array(12)].map((_, i) => {
+    const month = new Date()
+    month.setMonth(month.getMonth() - i)
+    const monthTransactions = transactions.filter(t => {
+      const txDate = new Date(t.date)
+      return txDate.getMonth() === month.getMonth() && txDate.getFullYear() === month.getFullYear()
+    })
+    return {
+      month: month.toLocaleDateString('en-US', { month: 'short' }),
+      sales: monthTransactions.filter(t => t.status === 'paid').reduce((sum, t) => sum + t.amount, 0),
+      debt: monthTransactions.filter(t => t.status === 'unpaid').reduce((sum, t) => sum + t.amount, 0),
+      count: monthTransactions.length
+    }
+  }).reverse()
+
+  return {
+    collectionRate,
+    topCustomers,
+    topProducts,
+    sourceDistribution: Array.from(sourceMap.entries()).map(([name, value]) => ({ name, value })),
+    monthlyData,
+    avgTransaction: transactions.length > 0 ? totalAmount / transactions.length : 0,
+    uniqueCustomers: customerMap.size
+  }
+}
+
+// ─── MAIN POST HANDLER ─────────────────────────────────────────────────
+
 export async function POST(req: NextRequest) {
   try {
     const userId = getUserId(req)
@@ -127,10 +202,12 @@ export async function POST(req: NextRequest) {
     })
 
     // ─── Get Request Data ─────────────────────────────────────────────
-    const { transactions, stats, topProducts, avgTransaction } = await req.json()
+    const { transactions, stats, topProducts: reqTopProducts, avgTransaction: reqAvgTransaction } = await req.json()
 
-    // ─── Build Personalized Prompt ─────────────────────────────────────
-    // ✅ FIXED: Pass the values safely with null checking
+    // ─── Calculate Advanced Metrics ────────────────────────────────────
+    const metrics = calculateMetrics(transactions, stats)
+
+    // ─── Build Enhanced Prompt ─────────────────────────────────────────
     const businessTypeLabel = getBusinessTypeLabel(user?.businessType)
     const challengeLabel = getChallengeLabel(user?.challenge)
     const teamSizeLabel = getTeamSizeLabel(user?.teamSize)
@@ -138,7 +215,7 @@ export async function POST(req: NextRequest) {
     const location = user?.location || 'Ethiopia'
 
     const prompt = `
-You are a business intelligence analyst for an Ethiopian merchant. Analyze the following business data and provide 4 actionable insights.
+You are a senior business intelligence analyst for an Ethiopian merchant. Analyze the following business data and provide 5 actionable insights.
 
 BUSINESS PROFILE:
 - Business: ${businessName}
@@ -147,33 +224,40 @@ BUSINESS PROFILE:
 - Team Size: ${teamSizeLabel}
 - Main Challenge: ${challengeLabel}
 
-BUSINESS STATS:
+KEY METRICS:
 - Total Revenue: ${stats.totalSales} Birr
 - Outstanding Debt: ${stats.totalDebt} Birr
+- Collection Rate: ${Math.round(metrics.collectionRate)}%
 - Total Transactions: ${stats.totalTransactions}
 - Active Customers: ${stats.outstandingCustomers}
-- Average Transaction: ${avgTransaction} Birr
+- Unique Customers: ${metrics.uniqueCustomers}
+- Average Transaction: ${reqAvgTransaction || metrics.avgTransaction} Birr
 
 TOP PRODUCTS:
-${topProducts.map((p: any, i: number) => `${i + 1}. ${p.name}: ${p.revenue} Birr (${p.count} sales)`).join('\n')}
+${(reqTopProducts || metrics.topProducts).map((p: any, i: number) => `${i + 1}. ${p.name}: ${p.revenue} Birr (${p.count} sales)`).join('\n')}
 
-Recent Transactions: ${transactions.length} transactions
+TOP CUSTOMERS:
+${metrics.topCustomers.map((c: any, i: number) => `${i + 1}. ${c.name}: ${c.totalSpent} Birr (${c.count} transactions)`).join('\n')}
+
+SOURCE DISTRIBUTION:
+${metrics.sourceDistribution.map((s: any) => `- ${s.name}: ${s.value} transactions`).join('\n')}
 
 TASK:
-Based on the business profile and data, provide 4 specific, actionable insights that help this business grow. Each insight should:
+Based on the business profile and data, provide 5 specific, actionable insights that help this business grow. Each insight should:
 1. Be specific to their business type (${businessTypeLabel})
 2. Address their main challenge (${challengeLabel})
 3. Be practical for their team size (${teamSizeLabel})
-4. Start with an emoji
+4. Start with a relevant emoji
 
 Focus areas:
 1. Revenue opportunities specific to their business type
 2. Debt collection and cash flow management
 3. Customer behavior and retention
 4. Business growth and operations
+5. Inventory/stock management (if applicable)
 
-Return ONLY a JSON array of strings.
-Example: ["💡 Insight 1", "📈 Insight 2", "🎯 Insight 3", "⭐ Insight 4"]
+Return ONLY a JSON array of 5 strings.
+Example: ["💡 Insight 1", "📈 Insight 2", "🎯 Insight 3", "⭐ Insight 4", "📦 Insight 5"]
 `
 
     const result = await callGeminiAPI(prompt)
@@ -188,10 +272,9 @@ Example: ["💡 Insight 1", "📈 Insight 2", "🎯 Insight 3", "⭐ Insight 4"]
       }
     }
 
-    // ─── Personalized Fallback Insights ──────────────────────────────
+    // ─── Enhanced Fallback Insights ──────────────────────────────────
 
     if (!insights || insights.length === 0) {
-      // Generate fallback insights based on business type and challenge
       const fallbacks: string[] = []
 
       // Revenue insight based on business type
@@ -215,10 +298,10 @@ Example: ["💡 Insight 1", "📈 Insight 2", "🎯 Insight 3", "⭐ Insight 4"]
       const challengeInsights: Record<string, string[]> = {
         'money': [
           '💰 Track your daily expenses and income separately to understand exactly where your money goes.',
-          '📊 Use EthioGenz reports to identify your top 5 most profitable products and focus on them.'
+          '📊 Use ENAT AI reports to identify your top 5 most profitable products and focus on them.'
         ],
         'stock': [
-          '📦 Use inventory tracking in EthioGenz to get alerts when stock levels are low.',
+          '📦 Use inventory tracking in ENAT AI to get alerts when stock levels are low.',
           '📈 Analyze your sales trends to predict what items you need to restock and when.'
         ],
         'sales': [
@@ -234,7 +317,7 @@ Example: ["💡 Insight 1", "📈 Insight 2", "🎯 Insight 3", "⭐ Insight 4"]
           '🤝 Negotiate bulk discounts with your existing suppliers to improve margins.'
         ],
         'credit': [
-          '💳 Set clear credit terms and use EthioGenz to track and follow up on unpaid debts.',
+          '💳 Set clear credit terms and use ENAT AI to track and follow up on unpaid debts.',
           '📱 Send automated reminders to customers with outstanding balances.'
         ],
         'competition': [
@@ -242,7 +325,7 @@ Example: ["💡 Insight 1", "📈 Insight 2", "🎯 Insight 3", "⭐ Insight 4"]
           '⭐ Focus on quality and consistency to build a loyal customer base.'
         ],
         'technology': [
-          '💻 EthioGenz automates your bookkeeping so you can focus on growing your business.',
+          '💻 ENAT AI automates your bookkeeping so you can focus on growing your business.',
           '📱 Use the mobile app to track transactions on the go.'
         ],
         'customers': [
@@ -254,19 +337,16 @@ Example: ["💡 Insight 1", "📈 Insight 2", "🎯 Insight 3", "⭐ Insight 4"]
           '📊 Offer volume discounts to encourage larger purchases.'
         ],
         'reports': [
-          '📊 EthioGenz automatically generates reports so you always know your financial position.',
+          '📊 ENAT AI automatically generates reports so you always know your financial position.',
           '📈 Review your reports weekly to spot trends and opportunities.'
         ],
       }
 
-      // Build fallback insights
       const typeKey = user?.businessType || ''
       const typeInsight = typeInsights[typeKey] || 
         `💡 Your ${businessTypeLabel} could benefit from focusing on your best-selling items and customer service.`
-      
       fallbacks.push(typeInsight)
 
-      // Add challenge-based insights
       const challengeKey = user?.challenge || ''
       if (challengeKey && challengeInsights[challengeKey]) {
         const challengeList = challengeInsights[challengeKey]
@@ -275,25 +355,33 @@ Example: ["💡 Insight 1", "📈 Insight 2", "🎯 Insight 3", "⭐ Insight 4"]
           fallbacks.push(challengeList[1])
         }
       } else {
-        fallbacks.push('📊 Use EthioGenz insights to track your best-selling products and focus on them.')
+        fallbacks.push('📊 Use ENAT AI insights to track your best-selling products and focus on them.')
         fallbacks.push('🎯 Set weekly goals and track your progress using the dashboard.')
       }
 
-      // Add location-based insight
       fallbacks.push(`📍 Your location in ${location} is an advantage. Focus on local marketing and community engagement.`)
 
-      // Ensure we have exactly 4 insights
-      while (fallbacks.length < 4) {
+      // Add a 5th insight based on collection rate
+      if (metrics.collectionRate < 70) {
+        fallbacks.push('📈 Your collection rate is below 70%. Focus on following up with customers who have outstanding balances.')
+      } else if (metrics.collectionRate > 90) {
+        fallbacks.push('⭐ Excellent collection rate! Consider offering early payment discounts to maintain this momentum.')
+      } else {
         fallbacks.push('🌟 Focus on customer satisfaction and building relationships for long-term success.')
       }
 
-      insights = fallbacks.slice(0, 4)
+      insights = fallbacks.slice(0, 5)
     }
 
-    // ─── Add a personalized greeting insight ───────────────────────────
+    // ─── Ensure 5 Insights ────────────────────────────────────────────
+    while (insights.length < 5) {
+      insights.push('🌟 Focus on customer satisfaction and building relationships for long-term success.')
+    }
+
+    // ─── Greeting ──────────────────────────────────────────────────────
     const greeting = `👋 ${user?.name || 'Hello'}, here are your personalized business insights based on your ${businessTypeLabel} business in ${location}.`
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       insights,
       personalized: true,
       businessProfile: {
@@ -302,7 +390,13 @@ Example: ["💡 Insight 1", "📈 Insight 2", "🎯 Insight 3", "⭐ Insight 4"]
         location: location,
         challenge: challengeLabel,
       },
-      greeting
+      greeting,
+      metrics: {
+        collectionRate: Math.round(metrics.collectionRate),
+        uniqueCustomers: metrics.uniqueCustomers,
+        topCustomers: metrics.topCustomers.slice(0, 3),
+        sourceDistribution: metrics.sourceDistribution,
+      }
     })
   } catch (error) {
     console.error('AI Insights Error:', error)
@@ -311,7 +405,8 @@ Example: ["💡 Insight 1", "📈 Insight 2", "🎯 Insight 3", "⭐ Insight 4"]
         '💡 Focus on your top performing products to maximize revenue.',
         '📈 Follow up with customers who have outstanding balances.',
         '🎯 Engage with your most valuable customers regularly.',
-        '⭐ Keep tracking your business metrics to identify opportunities.'
+        '⭐ Keep tracking your business metrics to identify opportunities.',
+        '📦 Monitor your inventory levels to avoid stockouts.'
       ],
       personalized: false
     })

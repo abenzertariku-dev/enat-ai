@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useCallback } from 'react'
+import { useRef, useState, useCallback, useEffect } from 'react'
 import { Camera, Upload, X, ImageIcon, AlertCircle } from 'lucide-react'
 
 interface ScanContentProps {
@@ -20,6 +20,12 @@ export default function ScanContent({ onPhotoUpload, isLoading }: ScanContentPro
   const [preview, setPreview] = useState<{ url: string; file: File } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
+
+  // #region agent log
+  useEffect(() => {
+    fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'i18n-pre',hypothesisId:'A',location:'ScanContent.tsx:mount',message:'ScanContent render — hardcoded EN?',data:{usesI18n:false,docLang:typeof document!=='undefined'?document.documentElement.lang:'?',hardcodedTitle:'Scan to ledger'},timestamp:Date.now()})}).catch(()=>{});
+  }, [])
+  // #endregion
 
   const validate = (file: File): string | null => {
     if (file.type && !ACCEPTED_TYPES.includes(file.type)) {

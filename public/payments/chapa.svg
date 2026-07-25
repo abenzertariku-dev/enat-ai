@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 48" fill="none" role="img" aria-label="Chapa">
+  <rect width="160" height="48" rx="10" fill="#0D0D2B"/>
+  <circle cx="24" cy="24" r="12" fill="#7DC400"/>
+  <path d="M19 24.5l3.2 3.2L29.5 20" stroke="#0D0D2B" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+  <text x="44" y="30" fill="#FFFFFF" font-family="Arial, Helvetica, sans-serif" font-size="18" font-weight="700">Chapa</text>
+</svg>

@@ -1,16 +1,21 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   TrendingUp, TrendingDown, Wallet, Users, Clock, Award,
   Zap, AlertTriangle, CheckCircle, BarChart3, PieChart,
   Calendar, ArrowUpRight, ArrowDownRight, RefreshCw,
   Lightbulb, Target, Shield, Sparkles, FileText, Download,
   Building2, MapPin, Users as UsersIcon, AlertCircle,
-  User, Mail, Phone, Calendar as CalendarIcon
+  User, Mail, Phone, Calendar as CalendarIcon,
+  ShoppingBag, DollarSign, Percent, Activity, Eye,
+  ChevronDown, ChevronRight, Filter, Search, X,
+  Package, ShoppingCart, Mic, Camera
 } from 'lucide-react'
 import { ResponsiveContainer, LineChart, Line, BarChart, Bar, PieChart as RePieChart, Pie, Cell, XAxis, YAxis, Tooltip, CartesianGrid, Legend } from 'recharts'
 import toast from 'react-hot-toast'
+
+// ─── Types ──────────────────────────────────────────────────────────────
 
 interface Transaction {
   id: string
@@ -19,7 +24,9 @@ interface Transaction {
   type: 'credit' | 'debit'
   date: string
   product: string
-  customer: { name: string }
+  customer: { name: string } | null
+  source?: 'voice' | 'scan' | 'stock_in' | 'stock_out'
+  description?: string
 }
 
 interface BusinessInsightsProps {
@@ -35,7 +42,9 @@ interface BusinessInsightsProps {
   userName?: string
 }
 
-const COLORS = ['#0F6B4C', '#C1442E', '#E5A823', '#2D6A4F', '#7A9B8A']
+// ─── Constants ─────────────────────────────────────────────────────────
+
+const COLORS = ['#0F6B4C', '#C1442E', '#E5A823', '#2D6A4F', '#7A9B8A', '#7C3AED', '#3B82F6']
 
 function formatCurrency(amount: number) {
   return amount.toLocaleString() + ' Br'
@@ -49,6 +58,47 @@ function getTrend(current: number, previous: number): { percentage: number; dire
     direction: diff > 0 ? 'up' : diff < 0 ? 'down' : 'neutral'
   }
 }
+
+// ─── Sub-Components ────────────────────────────────────────────────────
+
+function StatCard({ icon: Icon, label, value, tone, suffix, trend, trendLabel, subtitle }: any) {
+  const toneMap: Record<string, { bg: string; text: string; iconBg: string; border: string }> = {
+    emerald: { bg: 'bg-white', text: 'text-[#0F6B4C]', iconBg: 'bg-[#0F6B4C]/10', border: 'hover:border-[#0F6B4C]/20' },
+    brick: { bg: 'bg-white', text: 'text-[#C1442E]', iconBg: 'bg-[#C1442E]/10', border: 'hover:border-[#C1442E]/20' },
+    ink: { bg: 'bg-white', text: 'text-[#1F2A24]', iconBg: 'bg-[#1F2A24]/8', border: 'hover:border-[#1F2A24]/20' },
+    gold: { bg: 'bg-white', text: 'text-[#B8860B]', iconBg: 'bg-[#E5A823]/15', border: 'hover:border-[#E5A823]/20' },
+    purple: { bg: 'bg-white', text: 'text-[#7C3AED]', iconBg: 'bg-[#7C3AED]/10', border: 'hover:border-[#7C3AED]/20' },
+    blue: { bg: 'bg-white', text: 'text-[#3B82F6]', iconBg: 'bg-[#3B82F6]/10', border: 'hover:border-[#3B82F6]/20' },
+  }
+  const t = toneMap[tone]
+
+  return (
+    <div className={`${t.bg} rounded-2xl border border-black/5 p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)] transition-all hover:shadow-[0_4px_12px_rgba(0,0,0,0.06)] ${t.border}`}>
+      <div className="flex items-center justify-between">
+        <span className="text-[12.5px] font-medium text-[#1F2A24]/50">{label}</span>
+        <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${t.iconBg}`}>
+          <Icon size={14} className={t.text} />
+        </div>
+      </div>
+      <p className={`mt-2 text-2xl font-bold tracking-tight ${t.text}`}>
+        {value}
+        {suffix && <span className="ml-1 text-sm font-semibold text-[#1F2A24]/40">{suffix}</span>}
+      </p>
+      {subtitle && <p className="text-[10px] text-[#1F2A24]/30 mt-0.5">{subtitle}</p>}
+      {trend !== undefined && (
+        <div className="mt-1.5 flex items-center gap-1.5">
+          <span className={`flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${trend >= 0 ? 'bg-[#0F6B4C]/10 text-[#0F6B4C]' : 'bg-[#C1442E]/10 text-[#C1442E]'}`}>
+            {trend >= 0 ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+            {Math.abs(trend)}%
+          </span>
+          {trendLabel && <span className="text-[10px] text-[#1F2A24]/40">{trendLabel}</span>}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ─── Main Component ────────────────────────────────────────────────────
 
 export default function BusinessInsights({ transactions, stats, onRefresh, isLoading, userName }: BusinessInsightsProps) {
   const [timeRange, setTimeRange] = useState<'week' | 'month' | 'quarter'>('week')
@@ -99,34 +149,77 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
   // ─── Memoized Calculations ──────────────────────────────────────────
 
   const insights = useMemo(() => {
-    // Sales trend
-    const last30Days = [...Array(30)].map((_, i) => {
+    // Sales trend based on time range
+    const days = timeRange === 'week' ? 7 : timeRange === 'month' ? 30 : 90
+    const trendData = [...Array(days)].map((_, i) => {
       const d = new Date()
-      d.setDate(d.getDate() - i)
-      return d.toDateString()
-    }).reverse()
+      d.setDate(d.getDate() - (days - 1 - i))
+      return d
+    })
 
-    const dailySales = last30Days.map(date => {
-      const dayTransactions = transactions.filter(t => new Date(t.date).toDateString() === date)
+    const dailySales = trendData.map(date => {
+      const dayTransactions = transactions.filter(t => {
+        const txDate = new Date(t.date)
+        return txDate.toDateString() === date.toDateString()
+      })
       return {
-        date: new Date(date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        date: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
         sales: dayTransactions.filter(t => t.status === 'paid').reduce((sum, t) => sum + t.amount, 0),
-        count: dayTransactions.length
+        count: dayTransactions.length,
+        debt: dayTransactions.filter(t => t.status === 'unpaid').reduce((sum, t) => sum + t.amount, 0)
       }
     })
 
-    // Top products
-    const productMap = new Map<string, { name: string; revenue: number; count: number }>()
+    // Top products with detailed metrics
+    const productMap = new Map<string, { 
+      name: string
+      revenue: number
+      count: number
+      avgPrice: number
+      totalDebt: number
+    }>()
     transactions.forEach(t => {
       if (!productMap.has(t.product)) {
-        productMap.set(t.product, { name: t.product, revenue: 0, count: 0 })
+        productMap.set(t.product, { 
+          name: t.product, 
+          revenue: 0, 
+          count: 0, 
+          avgPrice: 0, 
+          totalDebt: 0 
+        })
       }
       const p = productMap.get(t.product)!
       p.revenue += t.amount
       p.count += 1
+      if (t.status === 'unpaid') p.totalDebt += t.amount
     })
+    productMap.forEach(p => { p.avgPrice = p.count > 0 ? p.revenue / p.count : 0 })
+    
     const topProducts = Array.from(productMap.values())
       .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 5)
+
+    // ✅ FIXED: Customer analysis - handle null customer
+    const customerMap = new Map<string, { 
+      name: string
+      totalSpent: number
+      totalDebt: number
+      count: number
+    }>()
+    transactions.forEach(t => {
+      // Skip stock transactions with null customer
+      if (!t.customer) return
+      const name = t.customer.name
+      if (!customerMap.has(name)) {
+        customerMap.set(name, { name, totalSpent: 0, totalDebt: 0, count: 0 })
+      }
+      const c = customerMap.get(name)!
+      c.totalSpent += t.amount
+      c.count += 1
+      if (t.status === 'unpaid') c.totalDebt += t.amount
+    })
+    const topCustomers = Array.from(customerMap.values())
+      .sort((a, b) => b.totalSpent - a.totalSpent)
       .slice(0, 5)
 
     // Payment distribution
@@ -137,49 +230,73 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
       { name: 'Unpaid', value: unpaid }
     ]
 
-    // Weekly performance
-    const weeks = 4
-    const weeklyData = [...Array(weeks)].map((_, i) => {
-      const weekStart = new Date()
-      weekStart.setDate(weekStart.getDate() - (weeks - i) * 7)
-      const weekEnd = new Date(weekStart)
-      weekEnd.setDate(weekEnd.getDate() + 6)
-      
-      const weekTransactions = transactions.filter(t => {
-        const d = new Date(t.date)
-        return d >= weekStart && d <= weekEnd
-      })
-      
-      return {
-        week: `Week ${i + 1}`,
-        sales: weekTransactions.filter(t => t.status === 'paid').reduce((sum, t) => sum + t.amount, 0),
-        debt: weekTransactions.filter(t => t.status === 'unpaid').reduce((sum, t) => sum + t.amount, 0)
-      }
+    // Source distribution
+    const sourceMap = new Map<string, number>()
+    transactions.forEach(t => {
+      const source = t.source || 'unknown'
+      sourceMap.set(source, (sourceMap.get(source) || 0) + 1)
     })
+    const sourceDistribution = Array.from(sourceMap.entries()).map(([name, value]) => ({
+      name: name === 'voice' ? '🎙️ Voice' : 
+            name === 'scan' ? '📸 Scan' : 
+            name === 'stock_in' ? '📦 Stock In' :
+            name === 'stock_out' ? '🛒 Sale' : 
+            name === 'unknown' ? '❓ Unknown' : name,
+      value
+    }))
 
-    // Customer acquisition
-    const uniqueCustomers = new Set(transactions.map(t => t.customer.name)).size
+    // Monthly performance
+    const monthlyData = [...Array(12)].map((_, i) => {
+      const month = new Date()
+      month.setMonth(month.getMonth() - i)
+      const monthTransactions = transactions.filter(t => {
+        const txDate = new Date(t.date)
+        return txDate.getMonth() === month.getMonth() && txDate.getFullYear() === month.getFullYear()
+      })
+      return {
+        month: month.toLocaleDateString('en-US', { month: 'short' }),
+        sales: monthTransactions.filter(t => t.status === 'paid').reduce((sum, t) => sum + t.amount, 0),
+        debt: monthTransactions.filter(t => t.status === 'unpaid').reduce((sum, t) => sum + t.amount, 0),
+        count: monthTransactions.length
+      }
+    }).reverse()
+
+    // ✅ FIXED: Unique customers - only count valid customers
+    const uniqueCustomers = new Set(
+      transactions
+        .filter(t => t.customer)
+        .map(t => t.customer!.name)
+    ).size
 
     // Average transaction value
     const avgTransaction = transactions.length > 0 
       ? transactions.reduce((sum, t) => sum + t.amount, 0) / transactions.length 
       : 0
 
+    // Debt collection rate
+    const totalAmount = transactions.reduce((sum, t) => sum + t.amount, 0)
+    const collectionRate = totalAmount > 0 ? (stats.totalSales / totalAmount) * 100 : 0
+
     return {
       dailySales,
       topProducts,
+      topCustomers,
       paymentDistribution,
-      weeklyData,
+      sourceDistribution,
+      monthlyData,
       uniqueCustomers,
       avgTransaction,
       totalRevenue: stats.totalSales,
-      totalDebt: stats.totalDebt
+      totalDebt: stats.totalDebt,
+      collectionRate,
+      totalTransactions: stats.totalTransactions,
+      outstandingCustomers: stats.outstandingCustomers
     }
-  }, [transactions, stats])
+  }, [transactions, stats, timeRange])
 
-  // ─── AI Insights Generation ──────────────────────────────────────────
+  // ─── AI Insights Generation ─────────────────────────────────────────
 
-  const generateAiInsights = async () => {
+  const generateAiInsights = useCallback(async () => {
     setIsGenerating(true)
     try {
       const token = localStorage.getItem('token')
@@ -209,7 +326,6 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
         setBusinessProfile(data.businessProfile || null)
         toast.success('✨ AI insights generated!')
       } else {
-        // Fallback insights
         setAiInsights([
           '💡 Your top performing product is generating the most revenue this month.',
           '📈 Customer acquisition has increased by 12% compared to last quarter.',
@@ -218,7 +334,6 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
         ])
       }
     } catch {
-      // Fallback insights
       setAiInsights([
         '💡 Your business is growing steadily. Keep up the momentum!',
         '📈 Consider offering loyalty programs to your top customers.',
@@ -228,7 +343,7 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
     } finally {
       setIsGenerating(false)
     }
-  }
+  }, [transactions, stats, insights])
 
   useEffect(() => {
     if (transactions.length > 0 && aiInsights.length === 0) {
@@ -243,35 +358,37 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
       label: 'Total Revenue',
       value: formatCurrency(stats.totalSales),
       icon: Wallet,
-      color: 'text-emerald-600',
-      bg: 'bg-emerald-50',
-      trend: getTrend(stats.totalSales, stats.totalSales * 0.9)
+      tone: 'emerald',
+      trend: getTrend(stats.totalSales, stats.totalSales * 0.9),
+      subtitle: `${insights.totalTransactions} transactions`
     },
     {
       label: 'Outstanding Debt',
       value: formatCurrency(stats.totalDebt),
       icon: AlertTriangle,
-      color: 'text-red-600',
-      bg: 'bg-red-50',
-      trend: getTrend(stats.totalDebt, stats.totalDebt * 0.85)
+      tone: 'brick',
+      trend: getTrend(stats.totalDebt, stats.totalDebt * 0.85),
+      subtitle: `${insights.outstandingCustomers} customers`
     },
     {
-      label: 'Active Customers',
-      value: insights.uniqueCustomers.toString(),
-      icon: Users,
-      color: 'text-blue-600',
-      bg: 'bg-blue-50',
-      trend: { percentage: 8, direction: 'up' }
+      label: 'Collection Rate',
+      value: `${Math.round(insights.collectionRate)}%`,
+      icon: Percent,
+      tone: 'blue',
+      trend: { percentage: 5, direction: 'up' },
+      subtitle: `${formatCurrency(stats.totalSales)} collected`
     },
     {
       label: 'Avg Transaction',
       value: formatCurrency(insights.avgTransaction),
-      icon: Award,
-      color: 'text-purple-600',
-      bg: 'bg-purple-50',
-      trend: { percentage: 5, direction: 'up' }
+      icon: DollarSign,
+      tone: 'purple',
+      trend: { percentage: 8, direction: 'up' },
+      subtitle: `${insights.uniqueCustomers} customers`
     }
   ]
+
+  // ─── Render ────────────────────────────────────────────────────────
 
   return (
     <div className="space-y-6">
@@ -285,15 +402,19 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
           <p className="text-sm text-[#1F2A24]/50">AI-powered analytics for your business</p>
         </div>
         <div className="flex items-center gap-3">
-          <select
-            value={timeRange}
-            onChange={(e) => setTimeRange(e.target.value as any)}
-            className="rounded-xl border border-black/10 bg-white px-4 py-2 text-sm focus:border-transparent focus:outline-none focus:ring-2 focus:ring-emerald-500/40"
-          >
-            <option value="week">Last Week</option>
-            <option value="month">Last Month</option>
-            <option value="quarter">Last Quarter</option>
-          </select>
+          <div className="flex rounded-lg border border-black/5 p-0.5">
+            {['week', 'month', 'quarter'].map((range) => (
+              <button
+                key={range}
+                onClick={() => setTimeRange(range as any)}
+                className={`px-3 py-1 text-[10px] font-medium rounded transition ${
+                  timeRange === range ? 'bg-[#0F6B4C] text-white' : 'text-[#1F2A24]/50 hover:text-[#1F2A24]'
+                }`}
+              >
+                {range.charAt(0).toUpperCase() + range.slice(1)}
+              </button>
+            ))}
+          </div>
           {onRefresh && (
             <button
               onClick={onRefresh}
@@ -306,7 +427,7 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
         </div>
       </div>
 
-      {/* ─── USER PROFILE SECTION ────────────────────────────────────── */}
+      {/* ─── USER PROFILE ────────────────────────────────────────────── */}
       {userInfo && (
         <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm">
           <div className="flex flex-wrap items-center gap-4">
@@ -342,7 +463,7 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
         </div>
       )}
 
-      {/* ─── PERSONALIZED GREETING ───────────────────────────────────── */}
+      {/* ─── GREETING ────────────────────────────────────────────────── */}
       {greeting && (
         <div className="bg-gradient-to-r from-emerald-50 to-emerald-100/70 rounded-2xl border border-emerald-200 p-4">
           <div className="flex items-center gap-2">
@@ -352,7 +473,7 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
         </div>
       )}
 
-      {/* ─── BUSINESS PROFILE CARDS ──────────────────────────────────── */}
+      {/* ─── BUSINESS PROFILE ────────────────────────────────────────── */}
       {businessProfile && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           <div className="bg-white rounded-xl border border-black/5 p-3 shadow-sm text-center hover:shadow-md transition">
@@ -380,30 +501,21 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
 
       {/* ─── STATS GRID ────────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        {statCards.map((stat, index) => {
-          const Icon = stat.icon
-          const isUp = stat.trend.direction === 'up'
-          return (
-            <div key={index} className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm hover:shadow-md transition">
-              <div className="flex items-center justify-between">
-                <div className={`p-2 rounded-xl ${stat.bg}`}>
-                  <Icon size={16} className={stat.color} />
-                </div>
-                <span className={`text-xs font-medium flex items-center gap-0.5 ${
-                  isUp ? 'text-emerald-600' : 'text-red-600'
-                }`}>
-                  {isUp ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                  {stat.trend.percentage}%
-                </span>
-              </div>
-              <p className="text-xs text-[#1F2A24]/40 mt-2">{stat.label}</p>
-              <p className="text-lg font-bold text-[#1F2A24]">{stat.value}</p>
-            </div>
-          )
-        })}
+        {statCards.map((stat, index) => (
+          <StatCard
+            key={index}
+            icon={stat.icon}
+            label={stat.label}
+            value={stat.value}
+            tone={stat.tone}
+            trend={stat.trend?.percentage}
+            trendLabel={stat.trend?.direction === 'up' ? '↑' : '↓'}
+            subtitle={stat.subtitle}
+          />
+        ))}
       </div>
 
-      {/* ─── AI INSIGHTS BANNER ───────────────────────────────────────── */}
+      {/* ─── AI INSIGHTS ───────────────────────────────────────────────── */}
       {showAiInsights && aiInsights.length > 0 && (
         <div className="bg-gradient-to-r from-emerald-50 to-emerald-100/50 rounded-2xl border border-emerald-200 p-4">
           <div className="flex items-start justify-between">
@@ -436,20 +548,22 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
 
       {/* ─── CHARTS GRID ───────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        {/* Sales Trend */}
+        {/* Sales Trend with Debt Overlay */}
         <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm hover:shadow-md transition">
           <h4 className="text-sm font-semibold text-[#1F2A24] mb-3 flex items-center gap-2">
             <TrendingUp size={16} className="text-emerald-600" />
-            Sales Trend
+            Sales & Debt Trend
           </h4>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={insights.dailySales}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="date" tick={{ fontSize: 10 }} tickLine={false} />
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} tickLine={false} interval={timeRange === 'week' ? 0 : 2} />
                 <YAxis tick={{ fontSize: 10 }} tickLine={false} />
                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Line type="monotone" dataKey="sales" stroke="#0F6B4C" strokeWidth={2} dot={false} />
+                <Legend verticalAlign="top" height={20} />
+                <Line type="monotone" dataKey="sales" stroke="#0F6B4C" strokeWidth={2} dot={false} name="Sales" />
+                <Line type="monotone" dataKey="debt" stroke="#C1442E" strokeWidth={2} dot={false} strokeDasharray="5 5" name="Debt" />
               </LineChart>
             </ResponsiveContainer>
           </div>
@@ -465,7 +579,7 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={insights.topProducts} layout="vertical">
                 <XAxis type="number" tick={false} />
-                <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={60} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={70} />
                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
                 <Bar dataKey="revenue" fill="#0F6B4C" radius={[0, 4, 4, 0]} />
               </BarChart>
@@ -473,7 +587,7 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
           </div>
         </div>
 
-        {/* Payment Distribution */}
+        {/* Payment & Source Distribution */}
         <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm hover:shadow-md transition">
           <h4 className="text-sm font-semibold text-[#1F2A24] mb-3 flex items-center gap-2">
             <PieChart size={16} className="text-emerald-600" />
@@ -502,20 +616,39 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
           </div>
         </div>
 
-        {/* Weekly Performance */}
+        {/* Top Customers */}
         <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm hover:shadow-md transition">
           <h4 className="text-sm font-semibold text-[#1F2A24] mb-3 flex items-center gap-2">
-            <CalendarIcon size={16} className="text-emerald-600" />
-            Weekly Performance
+            <Users size={16} className="text-emerald-600" />
+            Top Customers
           </h4>
           <div className="h-48">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={insights.weeklyData}>
-                <XAxis dataKey="week" tick={{ fontSize: 10 }} tickLine={false} />
+              <BarChart data={insights.topCustomers} layout="vertical">
+                <XAxis type="number" tick={false} />
+                <YAxis type="category" dataKey="name" tick={{ fontSize: 10 }} width={70} />
+                <Tooltip formatter={(value) => formatCurrency(Number(value))} />
+                <Bar dataKey="totalSpent" fill="#7C3AED" radius={[0, 4, 4, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Monthly Performance */}
+        <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm hover:shadow-md transition lg:col-span-2">
+          <h4 className="text-sm font-semibold text-[#1F2A24] mb-3 flex items-center gap-2">
+            <Calendar size={16} className="text-emerald-600" />
+            Monthly Performance
+          </h4>
+          <div className="h-48">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={insights.monthlyData}>
+                <XAxis dataKey="month" tick={{ fontSize: 10 }} tickLine={false} />
                 <YAxis tick={{ fontSize: 10 }} tickLine={false} />
                 <Tooltip formatter={(value) => formatCurrency(Number(value))} />
-                <Bar dataKey="sales" fill="#0F6B4C" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="debt" fill="#C1442E" radius={[4, 4, 0, 0]} />
+                <Legend verticalAlign="top" height={20} />
+                <Bar dataKey="sales" fill="#0F6B4C" radius={[4, 4, 0, 0]} name="Sales" />
+                <Bar dataKey="debt" fill="#C1442E" radius={[4, 4, 0, 0]} name="Debt" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -540,6 +673,29 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
           <Download size={20} className="mx-auto text-emerald-600 group-hover:scale-110 transition" />
           <p className="text-xs text-[#1F2A24]/60 mt-1">Download</p>
         </button>
+      </div>
+
+      {/* ─── KEY METRICS SUMMARY ──────────────────────────────────────── */}
+      <div className="bg-white rounded-2xl border border-black/5 p-4 shadow-sm">
+        <h4 className="text-sm font-semibold text-[#1F2A24] mb-3">Key Metrics Summary</h4>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="text-center">
+            <p className="text-2xl font-bold text-[#1F2A24]">{insights.totalTransactions}</p>
+            <p className="text-[10px] text-[#1F2A24]/40">Total Transactions</p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl font-bold text-emerald-600">{insights.uniqueCustomers}</p>
+            <p className="text-[10px] text-[#1F2A24]/40">Unique Customers</p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl font-bold text-purple-600">{insights.topProducts.length}</p>
+            <p className="text-[10px] text-[#1F2A24]/40">Top Products</p>
+          </div>
+          <div className="text-center">
+            <p className="text-2xl font-bold text-blue-600">{Math.round(insights.collectionRate)}%</p>
+            <p className="text-[10px] text-[#1F2A24]/40">Collection Rate</p>
+          </div>
+        </div>
       </div>
     </div>
   )

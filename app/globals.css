@@ -1,26 +1,95 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f7f4ee;
+  --foreground: #1a2e24;
+  --surface: #ffffff;
+  --surface-muted: #fbf9f5;
+  --border: rgba(0, 0, 0, 0.08);
+  --muted: rgba(26, 46, 36, 0.55);
+  --enat-green: #004526;
+  --enat-green-mid: #0f6b4c;
+  --enat-gold: #b88a44;
+  --enat-ink: #1a2e24;
+}
+
+.dark {
+  --background: #0b1a14;
+  --foreground: #e8efe9;
+  --surface: #12261d;
+  --surface-muted: #0f2018;
+  --border: rgba(255, 255, 255, 0.1);
+  --muted: rgba(232, 239, 233, 0.55);
+  --enat-green: #1a7a55;
+  --enat-green-mid: #2a9a6c;
+  --enat-gold: #c9a05a;
+  --enat-ink: #e8efe9;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-manrope), var(--font-ethiopic);
+  --font-serif: var(--font-fraunces), var(--font-ethiopic);
+  --font-display: var(--font-fraunces), var(--font-ethiopic);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html {
+  color-scheme: light;
+}
+
+html.dark {
+  color-scheme: dark;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-manrope), var(--font-ethiopic), system-ui, sans-serif;
+}
+
+.landing-root {
+  font-family: var(--font-manrope), var(--font-ethiopic), system-ui, sans-serif;
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes hero-ken {
+  from {
+    transform: scale(1.08);
+  }
+  to {
+    transform: scale(1);
+  }
+}
+
+.animate-rise {
+  animation: rise 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-rise-delayed {
+  animation: rise 0.85s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-hero-ken {
+  animation: hero-ken 14s ease-out both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise,
+  .animate-rise-delayed,
+  .animate-hero-ken {
+    animation: none;
+  }
 }

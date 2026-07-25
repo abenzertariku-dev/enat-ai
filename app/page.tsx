@@ -1,428 +1,195 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect } from 'react'
+import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import toast from 'react-hot-toast'
-import Navigation from '@/app/components/Navigation'
-import DashboardContent from '@/app/components/DashboardContent'
-import ScanContent from '@/app/components/ScanContent'
-import VoiceContent from '@/app/components/VoiceContent'
-import TransactionsContent from '@/app/components/TransactionsContent'
-import CustomersContent from '@/app/components/CustomersContent'
-import SettingsContent from '@/app/components/SettingsContent'
-import BusinessInsights from '@/app/components/BusinessInsights'
-import StockInventory from '@/app/components/StockInventory'
-import StockImporter from '@/app/components/StockImporter'
-import StockSales from '@/app/components/StockSales'
-import StockAlerts from '@/app/components/StockAlerts'
-// ✅ NEW: Import Stock Alert Widget
-import StockAlertWidget from '@/app/components/StockAlertWidget'
+import { Mic, Camera, LineChart, ArrowRight } from 'lucide-react'
+import BrandLogo from '@/app/components/BrandLogo'
+import ThemeToggle from '@/app/components/ThemeToggle'
+import LanguageToggle from '@/app/components/LanguageToggle'
+import { useI18n } from '@/lib/i18n'
 
-interface UserData {
-  id: string
-  name: string
-  email: string
-  businessName: string | null
-  phone: string | null
-}
-
-const PAGE_TITLES: Record<string, string> = {
-  dashboard: 'Dashboard',
-  scan: 'Scan to Ledger',
-  voice: 'Voice to Ledger',
-  transactions: 'Transactions',
-  customers: 'Customers',
-  insights: 'Business Insights',
-  stock: 'Stock Management',
-  settings: 'Settings',
-}
-
-export default function Home() {
+export default function LandingPage() {
   const router = useRouter()
-  const [activeTab, setActiveTab] = useState('dashboard')
-  const [isLoading, setIsLoading] = useState(true)
-  const [user, setUser] = useState<UserData | null>(null)
-  const [transactions, setTransactions] = useState([])
-  const [topCustomers, setTopCustomers] = useState([])
-  const [customers, setCustomers] = useState([])
-  const [stats, setStats] = useState({
-    totalSales: 0,
-    totalDebt: 0,
-    totalTransactions: 0,
-    outstandingCustomers: 0,
-  })
-  const [loading, setLoading] = useState(false)
-  const [lastVoiceResult, setLastVoiceResult] = useState<{
-    transcript?: string
-    customerName: string
-    product: string
-    amount: number
-    type: 'credit' | 'debit'
-  } | null>(null)
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
-
-  // Stock state
-  const [stockItems, setStockItems] = useState([])
-  const [stockAlerts, setStockAlerts] = useState([])
-  const [stockTab, setStockTab] = useState<'inventory' | 'import' | 'sales' | 'alerts'>('inventory')
-
-  const getAuthHeaders = (isFormData: boolean = false): Record<string, string> => {
-    const token = localStorage.getItem('token')
-    const headers: Record<string, string> = {
-      Authorization: `Bearer ${token}`,
-    }
-    if (!isFormData) {
-      headers['Content-Type'] = 'application/json'
-    }
-    return headers
-  }
+  const { t } = useI18n()
 
   useEffect(() => {
+    // #region agent log
+    fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '984a50' },
+      body: JSON.stringify({
+        sessionId: '984a50',
+        runId: 'hero-update',
+        hypothesisId: 'H1',
+        location: 'app/page.tsx:mount',
+        message: 'Landing with custom hero bg',
+        data: { heroSrc: '/hero-bg.jpg' },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {})
+    // #endregion
+
     const token = localStorage.getItem('token')
-    if (!token) {
-      router.push('/login')
-      return
-    }
+    if (!token) return
 
     fetch('/api/auth/me', {
-      headers: getAuthHeaders(),
+      headers: { Authorization: `Bearer ${token}` },
     })
       .then((res) => {
-        if (!res.ok) throw new Error('Invalid token')
-        return res.json()
-      })
-      .then((data) => {
-        if (data?.user) {
-          setUser(data.user)
-          setIsLoading(false)
-          fetchDashboard()
-          fetchStockData()
-          fetchStockAlerts()
+        if (res.ok) {
+          router.replace('/dashboard')
+          return
         }
-      })
-      .catch(() => {
         localStorage.removeItem('token')
         localStorage.removeItem('user')
-        router.push('/login')
       })
+      .catch(() => {})
   }, [router])
 
-  const fetchDashboard = async () => {
-    try {
-      const [dashboardRes, customersRes] = await Promise.all([
-        fetch('/api/dashboard', { headers: getAuthHeaders() }),
-        fetch('/api/customers', { headers: getAuthHeaders() }),
-      ])
-
-      if (dashboardRes.status === 401 || customersRes.status === 401) {
-        localStorage.removeItem('token')
-        localStorage.removeItem('user')
-        router.push('/login')
-        return
-      }
-
-      const data = await dashboardRes.json()
-      setTransactions(data.transactions || [])
-      setTopCustomers(data.topCustomers || [])
-      setStats(
-        data.stats || {
-          totalSales: 0,
-          totalDebt: 0,
-          totalTransactions: 0,
-          outstandingCustomers: 0,
-        }
-      )
-
-      const customersData = await customersRes.json()
-      setCustomers(customersData.customers || [])
-    } catch (error) {
-      console.error('Dashboard Error:', error)
-      toast.error('Failed to load dashboard')
-    }
-  }
-
-  const fetchStockData = async () => {
-    try {
-      const res = await fetch('/api/stock', { headers: getAuthHeaders() })
-      if (res.ok) {
-        const data = await res.json()
-        setStockItems(data.items || [])
-      }
-    } catch (error) {
-      console.error('Stock Fetch Error:', error)
-    }
-  }
-
-  const fetchStockAlerts = async () => {
-    try {
-      const res = await fetch('/api/stock/alerts', { headers: getAuthHeaders() })
-      if (res.ok) {
-        const data = await res.json()
-        setStockAlerts(data.alerts || [])
-      }
-    } catch (error) {
-      console.error('Alerts Fetch Error:', error)
-    }
-  }
-
-  const handlePhotoUpload = async (file: File) => {
-    setLoading(true)
-    const formData = new FormData()
-    formData.append('image', file)
-
-    try {
-      const res = await fetch('/api/upload', {
-        method: 'POST',
-        headers: getAuthHeaders(true),
-        body: formData,
-      })
-
-      if (res.ok) {
-        toast.success('Transaction added from photo')
-        await fetchDashboard()
-      } else {
-        const data = await res.json()
-        toast.error(data.error || 'Failed to process image')
-      }
-    } catch (error) {
-      toast.error('Network error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleAudioRecorded = async (audioBlob: Blob) => {
-    setLoading(true)
-    const formData = new FormData()
-    const ext = audioBlob.type.includes('mp4') ? 'm4a' : audioBlob.type.includes('ogg') ? 'ogg' : 'webm'
-    formData.append('audio', audioBlob, `recording.${ext}`)
-
-    try {
-      const res = await fetch('/api/voice/audio', {
-        method: 'POST',
-        headers: getAuthHeaders(true),
-        body: formData,
-      })
-
-      const data = await res.json()
-
-      if (res.ok) {
-        setLastVoiceResult({
-          transcript: data.transcript,
-          customerName: data.transaction.customer.name,
-          product: data.transaction.product,
-          amount: data.transaction.amount,
-          type: data.transaction.type,
-        })
-        toast.success('Transaction added from voice')
-        await fetchDashboard()
-      } else {
-        toast.error(data.error || 'Failed to process voice')
-      }
-    } catch (error) {
-      toast.error('Network error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const markAsPaid = async (id: string) => {
-    try {
-      const res = await fetch('/api/transactions', {
-        method: 'PUT',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({ id, status: 'paid' }),
-      })
-
-      if (res.ok) {
-        toast.success('Marked as paid')
-        await fetchDashboard()
-      }
-    } catch (error) {
-      toast.error('Failed to update')
-    }
-  }
-
-  const addSampleTransaction = async () => {
-    setLoading(true)
-    try {
-      const res = await fetch('/api/voice', {
-        method: 'POST',
-        headers: getAuthHeaders(),
-        body: JSON.stringify({
-          text: 'Kebede bought 2 bags of teff on credit for 16000 Birr',
-        }),
-      })
-      if (res.ok) {
-        toast.success('Sample transaction added')
-        await fetchDashboard()
-      } else {
-        toast.error('Failed to add sample')
-      }
-    } catch (error) {
-      toast.error('Network error')
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    toast.success('Logged out successfully')
-    router.push('/login')
-  }
-
-  if (isLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#FBF9F5]">
-        <div className="text-center">
-          <div className="mx-auto h-12 w-12 animate-spin rounded-full border-[3px] border-[#0F6B4C]/15 border-t-[#0F6B4C]" />
-          <p className="mt-4 text-[13.5px] font-medium text-[#1F2A24]/50">Loading EthioGenz…</p>
-        </div>
-      </div>
-    )
-  }
+  const featureItems = [
+    { icon: Mic, title: t('features.voice.title'), body: t('features.voice.body') },
+    { icon: Camera, title: t('features.scan.title'), body: t('features.scan.body') },
+    { icon: LineChart, title: t('features.insights.title'), body: t('features.insights.body') },
+  ]
 
   return (
-    <div className="min-h-screen bg-[#F4F1EA]">
-      <Navigation
-        activeTab={activeTab}
-        onTabChange={setActiveTab}
-        user={user}
-        onLogout={handleLogout}
-        onCollapsedChange={setSidebarCollapsed}
-      />
+    <div className="landing-root min-h-screen bg-[#0B1A2E] text-[#F4F0E6]">
+      <header className="relative isolate min-h-[100svh] overflow-hidden">
+        <div className="absolute inset-0 -z-10">
+          <Image
+            src="/hero-bg.jpg"
+            alt="Merchant managing inventory with a digital tablet and ledger"
+            fill
+            priority
+            className="object-cover object-[72%_center] md:object-right animate-hero-ken"
+            sizes="100vw"
+          />
+          {/* Soft left wash so copy stays readable without hiding the right scene */}
+          <div
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(90deg, rgba(8,18,36,0.92) 0%, rgba(8,18,36,0.78) 34%, rgba(8,18,36,0.28) 58%, rgba(8,18,36,0.12) 100%)',
+            }}
+          />
+        </div>
 
-      <div
-        className={`transition-[margin] duration-300 ease-out md:p-8 ${
-          sidebarCollapsed ? 'md:ml-[76px]' : 'md:ml-64'
-        }`}
-      >
-        <div className="mx-auto max-w-4xl">
-          <div className="h-16 md:hidden" />
+        <nav className="relative z-10 flex items-center justify-between gap-3 px-5 py-5 md:px-10 lg:px-14">
+          <Link href="/" className="flex items-center gap-2.5" aria-label="ENAT AI home">
+            <BrandLogo size={42} priority />
+            <span className="font-sans text-[1.05rem] font-bold tracking-tight">
+              <span className="text-[#E8EFE9]">ENAT</span>{' '}
+              <span className="text-[#B88A44]">AI</span>
+            </span>
+          </Link>
+          <div className="flex items-center gap-2">
+            <LanguageToggle />
+            <ThemeToggle />
+            <Link
+              href="/login"
+              className="hidden text-[14px] font-medium text-[#F4F0E6]/80 transition hover:text-[#B88A44] sm:inline"
+            >
+              {t('nav.signIn')}
+            </Link>
+          </div>
+        </nav>
 
-          <div className="p-4 md:p-0">
-            <div className="mb-6">
-              <h1 className="font-serif text-2xl font-bold tracking-tight text-[#1F2A24] md:text-3xl">
-                {PAGE_TITLES[activeTab]}
-              </h1>
-            </div>
-
-            {activeTab === 'dashboard' && (
-              <>
-                {/* ✅ NEW: Stock Alert Widget - Shows at top of dashboard */}
-                <div className="mb-4">
-                  <StockAlertWidget onViewAll={() => setActiveTab('stock')} />
-                </div>
-                <DashboardContent
-                  stats={stats}
-                  transactions={transactions}
-                  topCustomers={topCustomers}
-                  onMarkAsPaid={markAsPaid}
-                  onAddSample={addSampleTransaction}
-                  isLoading={loading}
+        {/* Hero copy sits in the dark left panel; right side keeps the warehouse scene */}
+        <div className="relative z-10 flex min-h-[calc(100svh-76px)] items-end px-5 pb-16 pt-10 md:items-center md:px-10 md:pb-24 lg:px-14">
+          <div className="w-full max-w-xl animate-rise md:max-w-[42%]">
+            <p className="font-serif text-[clamp(2.4rem,6vw,4.25rem)] font-semibold leading-[0.95] tracking-[-0.03em] text-[#F4F0E6]">
+              <span className="text-[#E8EFE9]">ENAT</span>{' '}
+              <span className="text-[#B88A44]">AI</span>
+            </p>
+            <h1 className="mt-5 max-w-[20ch] text-[clamp(1.25rem,2.8vw,1.75rem)] font-medium leading-snug tracking-tight text-[#F4F0E6]/95">
+              {t('hero.headline')}
+            </h1>
+            <p className="mt-4 max-w-[34ch] text-[15px] leading-relaxed text-[#F4F0E6]/68 md:text-[16px]">
+              {t('hero.support')}
+            </p>
+            <div className="mt-8 flex flex-wrap items-center gap-3">
+              <Link
+                href="/login?mode=signup"
+                className="group inline-flex items-center gap-2 rounded-xl bg-[#B88A44] px-6 py-3.5 text-[15px] font-semibold text-[#082A20] transition hover:bg-[#c9a05a]"
+              >
+                {t('nav.startFree')}
+                <ArrowRight
+                  size={18}
+                  className="transition-transform duration-300 group-hover:translate-x-0.5"
                 />
-              </>
-            )}
-
-            {activeTab === 'scan' && <ScanContent onPhotoUpload={handlePhotoUpload} isLoading={loading} />}
-
-            {activeTab === 'voice' && (
-              <VoiceContent onAudioRecorded={handleAudioRecorded} isLoading={loading} lastResult={lastVoiceResult} />
-            )}
-
-            {activeTab === 'transactions' && (
-              <TransactionsContent transactions={transactions} onMarkAsPaid={markAsPaid} />
-            )}
-
-            {activeTab === 'customers' && <CustomersContent customers={customers} transactions={transactions} />}
-
-            {activeTab === 'insights' && (
-              <BusinessInsights
-                transactions={transactions}
-                stats={stats}
-                onRefresh={fetchDashboard}
-                isLoading={loading}
-              />
-            )}
-
-            {activeTab === 'stock' && (
-              <div className="space-y-4">
-                <div className="flex gap-1 bg-white rounded-xl border border-black/5 p-1">
-                  {[
-                    { id: 'inventory', label: 'Inventory' },
-                    { id: 'import', label: 'Add Items' },
-                    { id: 'sales', label: 'Sales' },
-                    { id: 'alerts', label: 'Alerts' },
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      onClick={() => setStockTab(tab.id as any)}
-                      className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition ${
-                        stockTab === tab.id
-                          ? 'bg-emerald-600 text-white shadow-sm'
-                          : 'text-[#1F2A24]/60 hover:bg-gray-50'
-                      }`}
-                    >
-                      {tab.label} {tab.id === 'alerts' && stockAlerts.length > 0 && (
-                        <span className="ml-1 px-1.5 py-0.5 text-[10px] bg-red-500 text-white rounded-full">
-                          {stockAlerts.length}
-                        </span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-
-                {stockTab === 'inventory' && (
-                  <StockInventory
-                    items={stockItems}
-                    onRefresh={() => {
-                      fetchStockData()
-                      fetchStockAlerts()
-                    }}
-                    onUpdateItem={() => {
-                      fetchStockData()
-                      fetchStockAlerts()
-                    }}
-                  />
-                )}
-
-                {stockTab === 'import' && (
-                  <StockImporter
-                    onImportComplete={() => {
-                      fetchStockData()
-                      fetchStockAlerts()
-                    }}
-                  />
-                )}
-
-                {stockTab === 'sales' && (
-                  <StockSales
-                    items={stockItems}
-                    onSaleComplete={() => {
-                      fetchStockData()
-                      fetchStockAlerts()
-                    }}
-                  />
-                )}
-
-                {stockTab === 'alerts' && (
-                  <StockAlerts
-                    alerts={stockAlerts}
-                    onDismiss={fetchStockAlerts}
-                    onRefresh={fetchStockAlerts}
-                  />
-                )}
-              </div>
-            )}
-
-            {activeTab === 'settings' && <SettingsContent user={user} />}
+              </Link>
+              <Link
+                href="/login"
+                className="inline-flex items-center rounded-xl border border-[#F4F0E6]/25 bg-transparent px-6 py-3.5 text-[15px] font-medium text-[#F4F0E6] transition hover:border-[#B88A44]/60 hover:text-[#B88A44]"
+              >
+                {t('nav.signIn')}
+              </Link>
+            </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      <div className="h-20 md:hidden" />
+      {/* Feature icons as cards under the hero */}
+      <section className="relative z-10 bg-[var(--surface-muted)] px-5 py-16 text-[var(--enat-ink)] md:px-10 md:py-20 lg:px-14">
+        <div className="mx-auto max-w-5xl">
+          <h2 className="font-serif text-[clamp(1.75rem,4vw,2.5rem)] font-semibold tracking-tight text-[var(--enat-green)] dark:text-[#7dcea0]">
+            {t('features.title')}
+          </h2>
+          <p className="mt-3 max-w-lg text-[15.5px] leading-relaxed text-[var(--muted)]">
+            {t('features.subtitle')}
+          </p>
+
+          <div className="mt-10 grid gap-4 md:grid-cols-3">
+            {featureItems.map(({ icon: Icon, title, body }, i) => (
+              <article
+                key={title}
+                className="animate-rise-delayed rounded-2xl border border-black/5 bg-[var(--surface)] p-5 shadow-[0_8px_30px_rgba(8,18,36,0.1)] dark:border-white/10"
+                style={{ animationDelay: `${80 + i * 80}ms` }}
+              >
+                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--enat-green-mid)]/10 text-[var(--enat-green-mid)]">
+                  <Icon size={22} strokeWidth={1.75} aria-hidden />
+                </div>
+                <h3 className="mt-4 font-serif text-[1.1rem] font-semibold text-[var(--enat-ink)]">
+                  {title}
+                </h3>
+                <p className="mt-2 text-[13.5px] leading-relaxed text-[var(--muted)]">{body}</p>
+              </article>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="relative overflow-hidden bg-[#004526] px-5 py-20 dark:bg-[#0a2f1f] md:px-10 md:py-24 lg:px-14">
+        <div className="relative mx-auto max-w-5xl">
+          <h2 className="font-serif text-[clamp(1.65rem,3.5vw,2.35rem)] font-semibold tracking-tight text-[#F4F0E6]">
+            {t('cta.title')}
+          </h2>
+          <p className="mt-3 max-w-md text-[15.5px] text-[#F4F0E6]/65">{t('cta.subtitle')}</p>
+          <Link
+            href="/login?mode=signup"
+            className="mt-8 inline-flex items-center gap-2 rounded-xl bg-[#B88A44] px-6 py-3.5 text-[15px] font-semibold text-[#082A20] transition hover:bg-[#c9a05a]"
+          >
+            {t('hero.createAccount')}
+            <ArrowRight size={18} />
+          </Link>
+        </div>
+      </section>
+
+      <footer className="border-t border-white/10 bg-[#061910] px-5 py-8 md:px-10 lg:px-14">
+        <div className="mx-auto flex max-w-5xl flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+          <div className="flex items-center gap-2.5">
+            <BrandLogo size={36} />
+            <span className="text-[15px] font-semibold">
+              <span className="text-[#E8EFE9]">ENAT</span> <span className="text-[#B88A44]">AI</span>
+            </span>
+          </div>
+          <p className="text-[12.5px] text-[#F4F0E6]/40">
+            © {new Date().getFullYear()} ENAT AI. {t('footer.rights')}
+          </p>
+        </div>
+      </footer>
     </div>
   )
 }

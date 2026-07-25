@@ -8,23 +8,48 @@ datasource db {
 }
 
 model User {
-  id            String         @id @default(cuid())
-  email         String         @unique
-  password      String
-  name          String
-  businessName  String?
-  phone         String?
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-  customers     Customer[]
-  transactions  Transaction[]
-  businessType  String?
-  teamSize      String?
-  location      String?
-  challenge     String?
-  stockItems    StockItem[]
-  stockSales    StockSale[]
-  stockAlerts   StockAlert[]
+  id                  String         @id @default(cuid())
+  email               String         @unique
+  password            String
+  name                String
+  businessName        String?
+  phone               String?
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  customers           Customer[]
+  transactions        Transaction[]
+  businessType        String?
+  teamSize            String?
+  location            String?
+  challenge           String?
+  stockItems          StockItem[]
+  stockSales          StockSale[]
+  stockAlerts         StockAlert[]
+  /// trial | premium
+  plan                String         @default("trial")
+  /// trialing | active | expired
+  subscriptionStatus  String         @default("trialing")
+  trialEndsAt         DateTime?
+  premiumUntil        DateTime?
+  payments            Payment[]
+}
+
+model Payment {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  /// chapa | telebirr
+  provider    String
+  amount      Float
+  currency    String   @default("ETB")
+  /// pending | success | failed
+  status      String   @default("pending")
+  txRef       String   @unique
+  checkoutUrl String?
+  phone       String?
+  meta        String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 model Customer {

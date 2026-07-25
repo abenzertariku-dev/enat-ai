@@ -1,8 +1,10 @@
 'use client'
 
 import { useState } from 'react'
-import { User, Building2, Phone, Mail, Shield, Bell, Moon, Check, X } from 'lucide-react'
+import { User, Building2, Phone, Mail, Shield, Bell, Languages, Check, X } from 'lucide-react'
 import toast from 'react-hot-toast'
+import { useTheme } from '@/lib/theme'
+import { useI18n, type Locale } from '@/lib/i18n'
 
 interface SettingsContentProps {
   user: {
@@ -29,7 +31,7 @@ function Toggle({
       role="switch"
       aria-checked={checked}
       className={`relative h-6 w-12 rounded-full transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-        checked ? 'bg-[#0F6B4C]' : 'bg-black/15'
+        checked ? 'bg-[var(--enat-green-mid)]' : 'bg-black/15 dark:bg-white/20'
       }`}
     >
       <div
@@ -44,16 +46,18 @@ function Toggle({
 function InfoRow({ icon: Icon, label, value }: { icon: any; label: string; value: string }) {
   return (
     <div className="flex items-center gap-3 text-sm">
-      <Icon size={16} className="text-[#1F2A24]/35" />
+      <Icon size={16} className="text-[var(--muted)]" />
       <div>
-        <p className="text-[11px] text-[#1F2A24]/45">{label}</p>
-        <p className="font-medium text-[#1F2A24]">{value}</p>
+        <p className="text-[11px] text-[var(--muted)]">{label}</p>
+        <p className="font-medium text-[var(--enat-ink)]">{value}</p>
       </div>
     </div>
   )
 }
 
 export default function SettingsContent({ user }: SettingsContentProps) {
+  const { theme, setTheme } = useTheme()
+  const { locale, setLocale, t } = useI18n()
   const [notifications, setNotifications] = useState(true)
   const [showPasswordForm, setShowPasswordForm] = useState(false)
   const [currentPassword, setCurrentPassword] = useState('')
@@ -102,15 +106,14 @@ export default function SettingsContent({ user }: SettingsContentProps) {
 
   return (
     <div className="space-y-4">
-      <div className="rounded-2xl border border-black/5 bg-white p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <h2 className="text-lg font-bold tracking-tight text-[#1F2A24]">Settings</h2>
-        <p className="mt-1 text-sm text-[#1F2A24]/50">Manage your account and preferences</p>
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-6 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <h2 className="text-lg font-bold tracking-tight text-[var(--enat-ink)]">{t('settings.title')}</h2>
+        <p className="mt-1 text-sm text-[var(--muted)]">{t('settings.subtitle')}</p>
       </div>
 
-      {/* Profile */}
-      <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <h3 className="mb-3 flex items-center gap-2 text-[13.5px] font-semibold text-[#1F2A24]">
-          <User size={16} className="text-[#0F6B4C]" />
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <h3 className="mb-3 flex items-center gap-2 text-[13.5px] font-semibold text-[var(--enat-ink)]">
+          <User size={16} className="text-[var(--enat-green-mid)]" />
           Profile information
         </h3>
         <div className="space-y-3">
@@ -121,68 +124,100 @@ export default function SettingsContent({ user }: SettingsContentProps) {
         </div>
       </div>
 
-      {/* Preferences */}
-      <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <h3 className="mb-3 flex items-center gap-2 text-[13.5px] font-semibold text-[#1F2A24]">
-          <Bell size={16} className="text-[#0F6B4C]" />
-          Preferences
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <h3 className="mb-3 flex items-center gap-2 text-[13.5px] font-semibold text-[var(--enat-ink)]">
+          <Bell size={16} className="text-[var(--enat-green-mid)]" />
+          {t('settings.preferences')}
         </h3>
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[13px] font-medium text-[#1F2A24]">Payment reminders</p>
-              <p className="text-[11.5px] text-[#1F2A24]/45">Get notified about unpaid balances</p>
+              <p className="text-[13px] font-medium text-[var(--enat-ink)]">Payment reminders</p>
+              <p className="text-[11.5px] text-[var(--muted)]">Get notified about unpaid balances</p>
             </div>
             <Toggle checked={notifications} onChange={() => setNotifications((v) => !v)} />
           </div>
 
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-[13px] font-medium text-[#1F2A24]/50">Dark mode</p>
-              <p className="text-[11.5px] text-[#1F2A24]/35">Coming soon</p>
+              <p className="text-[13px] font-medium text-[var(--enat-ink)]">{t('theme.dark')}</p>
+              <p className="text-[11.5px] text-[var(--muted)]">{t('theme.darkHint')}</p>
             </div>
-            <Toggle checked={false} disabled />
+            <Toggle
+              checked={theme === 'dark'}
+              onChange={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
+            />
+          </div>
+
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="flex items-center gap-1.5 text-[13px] font-medium text-[var(--enat-ink)]">
+                <Languages size={14} />
+                {t('lang.label')}
+              </p>
+              <p className="text-[11.5px] text-[var(--muted)]">{t('settings.languageHint')}</p>
+            </div>
+            <div className="inline-flex rounded-lg border border-[var(--border)] bg-[var(--surface-muted)] p-0.5 text-[12px] font-medium">
+              {(
+                [
+                  { id: 'en' as Locale, label: t('lang.english') },
+                  { id: 'am' as Locale, label: t('lang.amharic') },
+                ] as const
+              ).map((opt) => (
+                <button
+                  key={opt.id}
+                  type="button"
+                  onClick={() => setLocale(opt.id)}
+                  className={`rounded-md px-3 py-1.5 transition ${
+                    locale === opt.id
+                      ? 'bg-[var(--enat-green-mid)] text-white'
+                      : 'text-[var(--muted)] hover:text-[var(--enat-ink)]'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Security */}
-      <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
-        <h3 className="mb-3 flex items-center gap-2 text-[13.5px] font-semibold text-[#1F2A24]">
-          <Shield size={16} className="text-[#0F6B4C]" />
+      <div className="rounded-2xl border border-[var(--border)] bg-[var(--surface)] p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">
+        <h3 className="mb-3 flex items-center gap-2 text-[13.5px] font-semibold text-[var(--enat-ink)]">
+          <Shield size={16} className="text-[var(--enat-green-mid)]" />
           Security
         </h3>
 
         {!showPasswordForm ? (
           <button
             onClick={() => setShowPasswordForm(true)}
-            className="w-full rounded-xl bg-[#FBF9F5] px-4 py-3 text-left transition hover:bg-[#F3EFE6]"
+            className="w-full rounded-xl bg-[var(--surface-muted)] px-4 py-3 text-left transition hover:opacity-90"
           >
-            <p className="text-[13px] font-medium text-[#1F2A24]">Change password</p>
-            <p className="text-[11.5px] text-[#1F2A24]/45">Update your account password</p>
+            <p className="text-[13px] font-medium text-[var(--enat-ink)]">Change password</p>
+            <p className="text-[11.5px] text-[var(--muted)]">Update your account password</p>
           </button>
         ) : (
-          <div className="space-y-2.5 rounded-xl bg-[#FBF9F5] p-4">
+          <div className="space-y-2.5 rounded-xl bg-[var(--surface-muted)] p-4">
             <input
               type="password"
               placeholder="Current password"
               value={currentPassword}
               onChange={(e) => setCurrentPassword(e.target.value)}
-              className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-[13.5px] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#0F6B4C]/40"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-[13.5px] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--enat-green-mid)]/40"
             />
             <input
               type="password"
               placeholder="New password (min 8 characters)"
               value={newPassword}
               onChange={(e) => setNewPassword(e.target.value)}
-              className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-[13.5px] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#0F6B4C]/40"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-[13.5px] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--enat-green-mid)]/40"
             />
             <input
               type="password"
               placeholder="Confirm new password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              className="w-full rounded-lg border border-black/10 bg-white px-3 py-2.5 text-[13.5px] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[#0F6B4C]/40"
+              className="w-full rounded-lg border border-[var(--border)] bg-[var(--surface)] px-3 py-2.5 text-[13.5px] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--enat-green-mid)]/40"
             />
             <div className="flex gap-2 pt-1">
               <button
@@ -193,7 +228,7 @@ export default function SettingsContent({ user }: SettingsContentProps) {
                   setConfirmPassword('')
                 }}
                 disabled={isSaving}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-[13px] font-medium text-[#1F2A24]/60 transition hover:bg-black/5 disabled:opacity-50"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg px-3 py-2.5 text-[13px] font-medium text-[var(--muted)] transition hover:bg-black/5 disabled:opacity-50 dark:hover:bg-white/5"
               >
                 <X size={14} />
                 Cancel
@@ -201,7 +236,7 @@ export default function SettingsContent({ user }: SettingsContentProps) {
               <button
                 onClick={submitPasswordChange}
                 disabled={isSaving}
-                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[#0F6B4C] px-3 py-2.5 text-[13px] font-medium text-white transition hover:bg-[#0B5A3F] disabled:opacity-50"
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-lg bg-[var(--enat-green-mid)] px-3 py-2.5 text-[13px] font-medium text-white transition hover:opacity-90 disabled:opacity-50"
               >
                 <Check size={14} />
                 {isSaving ? 'Saving…' : 'Save'}

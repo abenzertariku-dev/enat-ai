@@ -18,6 +18,10 @@ import {
   BarChart3,
   Package,
 } from 'lucide-react'
+import BrandLogo from '@/app/components/BrandLogo'
+import ThemeToggle from '@/app/components/ThemeToggle'
+import LanguageToggle from '@/app/components/LanguageToggle'
+import { useI18n } from '@/lib/i18n'
 
 interface NavigationProps {
   activeTab: string
@@ -28,40 +32,20 @@ interface NavigationProps {
     phone?: string | null
   } | null
   onLogout: () => void
-  /** Optional per-tab badge counts, e.g. { customers: 4 } for unpaid balances */
   badges?: Partial<Record<string, number>>
-  /** Called whenever the desktop sidebar collapses/expands, so the page can adjust its own left margin */
   onCollapsedChange?: (collapsed: boolean) => void
 }
 
-// In your tabs array - add 'insights'
-const tabs = [
-  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { id: 'scan', label: 'Scan', icon: Scan },
-  { id: 'voice', label: 'Voice', icon: Mic },
-  { id: 'transactions', label: 'Transactions', icon: Receipt },
-  { id: 'customers', label: 'Customers', icon: Users },
-  { id: 'insights', label: 'Insights', icon: BarChart3 },
-  { id: 'stock', label: 'Stock', icon: Package },  // ✅ NEW
-  { id: 'settings', label: 'Settings', icon: Settings },
-]
-
-// Small wax-seal style mark: three bands nod to the flag without being loud,
-// wrapped in a coffee-cup ring — a nod to the Merkato/coffee-ceremony world
-// this product lives in, standing in for the notebook emoji.
-function LedgerMark({ size = 34 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 40 40" fill="none" aria-hidden="true">
-      <circle cx="20" cy="20" r="19" stroke="#E5A823" strokeWidth="1.5" />
-      <path
-        d="M20 6a14 14 0 1 0 0 28 14 14 0 0 0 0-28Z"
-        fill="#0F6B4C"
-      />
-      <path d="M8 20a12 12 0 0 1 12-12v24A12 12 0 0 1 8 20Z" fill="#0B5A3F" />
-      <path d="M13 15h14M13 20h14M13 25h9" stroke="#FBF9F5" strokeWidth="1.6" strokeLinecap="round" />
-    </svg>
-  )
-}
+const TAB_IDS = [
+  { id: 'dashboard', icon: LayoutDashboard, labelKey: 'nav.dashboard' },
+  { id: 'scan', icon: Scan, labelKey: 'nav.scan' },
+  { id: 'voice', icon: Mic, labelKey: 'nav.voice' },
+  { id: 'transactions', icon: Receipt, labelKey: 'nav.transactions' },
+  { id: 'customers', icon: Users, labelKey: 'nav.customers' },
+  { id: 'insights', icon: BarChart3, labelKey: 'nav.insights' },
+  { id: 'stock', icon: Package, labelKey: 'nav.stock' },
+  { id: 'settings', icon: Settings, labelKey: 'nav.settings' },
+] as const
 
 function Badge({ count }: { count: number }) {
   if (!count) return null
@@ -81,13 +65,36 @@ function initials(name: string) {
     .join('')
 }
 
-export default function Navigation({ activeTab, onTabChange, user, onLogout, badges, onCollapsedChange }: NavigationProps) {
+function BrandWordmark({ compact = false }: { compact?: boolean }) {
+  const { t } = useI18n()
+  return (
+    <div className="min-w-0">
+      <h1 className="truncate text-lg font-bold tracking-tight text-[var(--enat-ink)]">
+        <span className="text-[var(--enat-green)] dark:text-[#7dcea0]">ENAT</span>{' '}
+        <span className="text-[#B88A44]">AI</span>
+      </h1>
+      {!compact && (
+        <p className="text-[11px] font-medium text-[var(--muted)]">{t('nav.tagline')}</p>
+      )}
+    </div>
+  )
+}
+
+export default function Navigation({
+  activeTab,
+  onTabChange,
+  user,
+  onLogout,
+  badges,
+  onCollapsedChange,
+}: NavigationProps) {
   const [isMobile, setIsMobile] = useState(false)
   const [isSidebarOpen, setIsSidebarOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const router = useRouter()
   const navRef = useRef<HTMLDivElement>(null)
   const [indicator, setIndicator] = useState({ top: 0, height: 0 })
+  const { t } = useI18n()
 
   useEffect(() => {
     const checkMobile = () => setIsMobile(window.innerWidth < 768)
@@ -107,7 +114,6 @@ export default function Navigation({ activeTab, onTabChange, user, onLogout, bad
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [collapsed])
 
-  // Slide a single active indicator between buttons instead of restyling each one
   useEffect(() => {
     if (!navRef.current) return
     const el = navRef.current.querySelector<HTMLElement>(`[data-tab="${activeTab}"]`)
@@ -118,46 +124,40 @@ export default function Navigation({ activeTab, onTabChange, user, onLogout, bad
 
   const go = (id: string) => {
     onTabChange(id)
-    router.push(`/#${id}`)
+    router.push(`/dashboard#${id}`)
   }
 
-  // ---------- Desktop sidebar ----------
   if (!isMobile) {
     return (
       <div
-        className={`fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-black/5 bg-[#FBF9F5] shadow-[1px_0_0_0_rgba(0,0,0,0.02)] transition-[width] duration-300 ease-out ${
+        className={`fixed left-0 top-0 z-40 flex h-screen flex-col border-r border-[var(--border)] bg-[var(--surface-muted)] transition-[width] duration-300 ease-out ${
           collapsed ? 'w-[76px]' : 'w-64'
         }`}
-        style={{
-          backgroundImage:
-            'repeating-linear-gradient(180deg, rgba(15,107,76,0.035) 0px, rgba(15,107,76,0.035) 1px, transparent 1px, transparent 32px)',
-        }}
       >
-        {/* Logo */}
-        <div className={`flex items-center gap-2.5 border-b border-black/5 px-5 py-5 ${collapsed ? 'justify-center px-3' : ''}`}>
-          <LedgerMark size={30} />
-          {!collapsed && (
-            <div className="min-w-0">
-              <h1 className="truncate font-serif text-lg font-bold tracking-tight text-[#1F2A24]">
-                EthioGenz
-              </h1>
-              <p className="text-[11px] font-medium text-[#1F2A24]/45">Smart Ledger</p>
-            </div>
-          )}
+        <div
+          className={`flex items-center gap-2.5 border-b border-[var(--border)] px-5 py-5 ${
+            collapsed ? 'justify-center px-3' : ''
+          }`}
+        >
+          <BrandLogo size={34} />
+          {!collapsed && <BrandWordmark />}
         </div>
 
-        {/* User */}
         {user && (
-          <div className={`border-b border-black/5 px-4 py-3.5 ${collapsed ? 'flex justify-center px-2' : ''}`}>
+          <div
+            className={`border-b border-[var(--border)] px-4 py-3.5 ${
+              collapsed ? 'flex justify-center px-2' : ''
+            }`}
+          >
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0F6B4C] text-xs font-semibold text-white">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--enat-green-mid)] text-xs font-semibold text-white">
                 {initials(user.name)}
               </div>
               {!collapsed && (
                 <div className="min-w-0">
-                  <p className="truncate text-[13px] font-semibold text-[#1F2A24]">{user.name}</p>
+                  <p className="truncate text-[13px] font-semibold text-[var(--enat-ink)]">{user.name}</p>
                   {user.businessName && (
-                    <p className="flex items-center gap-1 truncate text-[11px] text-[#1F2A24]/50">
+                    <p className="flex items-center gap-1 truncate text-[11px] text-[var(--muted)]">
                       <Building2 size={11} /> {user.businessName}
                     </p>
                   )}
@@ -167,31 +167,35 @@ export default function Navigation({ activeTab, onTabChange, user, onLogout, bad
           </div>
         )}
 
-        {/* Nav */}
         <nav ref={navRef} className="relative flex-1 space-y-1 overflow-y-auto p-3">
           <div
-            className="pointer-events-none absolute left-3 right-3 rounded-lg bg-[#0F6B4C]/[0.08] transition-all duration-200 ease-out"
+            className="pointer-events-none absolute left-3 right-3 rounded-lg bg-[var(--enat-green-mid)]/10 transition-all duration-200 ease-out"
             style={{ top: indicator.top, height: indicator.height }}
           />
-          {tabs.map((tab) => {
+          {TAB_IDS.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
+            const label = t(tab.labelKey)
             const count = badges?.[tab.id]
             return (
               <button
                 key={tab.id}
                 data-tab={tab.id}
                 onClick={() => go(tab.id)}
-                title={collapsed ? tab.label : undefined}
+                title={collapsed ? label : undefined}
                 className={`relative flex w-full items-center gap-3 rounded-lg px-3.5 py-2.5 text-[13.5px] font-medium transition-colors ${
                   collapsed ? 'justify-center px-0' : ''
-                } ${isActive ? 'text-[#0F6B4C]' : 'text-[#1F2A24]/60 hover:text-[#1F2A24]'}`}
+                } ${
+                  isActive
+                    ? 'text-[var(--enat-green-mid)]'
+                    : 'text-[var(--muted)] hover:text-[var(--enat-ink)]'
+                }`}
               >
                 {isActive && !collapsed && (
-                  <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-[#E5A823]" />
+                  <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-[#B88A44]" />
                 )}
                 <Icon size={19} strokeWidth={isActive ? 2.4 : 2} />
-                {!collapsed && <span>{tab.label}</span>}
+                {!collapsed && <span>{label}</span>}
                 {!collapsed && count ? <Badge count={count} /> : null}
                 {collapsed && count ? (
                   <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-[#C1442E]" />
@@ -201,47 +205,58 @@ export default function Navigation({ activeTab, onTabChange, user, onLogout, bad
           })}
         </nav>
 
-        {/* Collapse toggle */}
+        {!collapsed && (
+          <div className="mx-3 mb-2 flex items-center gap-2">
+            <LanguageToggle className="border-[var(--border)] bg-[var(--surface)] text-[var(--enat-ink)]" />
+            <ThemeToggle className="border-[var(--border)] bg-[var(--surface)] text-[var(--enat-ink)]" />
+          </div>
+        )}
+
         <button
           onClick={() => setCollapsed((c) => !c)}
-          className="mx-3 mb-2 flex items-center justify-center gap-2 rounded-lg py-2 text-[11px] font-medium text-[#1F2A24]/40 transition hover:bg-black/[0.03] hover:text-[#1F2A24]/70"
+          className="mx-3 mb-2 flex items-center justify-center gap-2 rounded-lg py-2 text-[11px] font-medium text-[var(--muted)] transition hover:bg-black/[0.03] hover:text-[var(--enat-ink)] dark:hover:bg-white/[0.05]"
         >
           {collapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
-          {!collapsed && 'Collapse'}
+          {!collapsed && t('nav.collapse')}
         </button>
 
-        {/* Logout */}
-        <div className="border-t border-black/5 p-3">
+        <div className="border-t border-[var(--border)] p-3">
           <button
             onClick={onLogout}
-            title={collapsed ? 'Logout' : undefined}
+            title={collapsed ? t('nav.logout') : undefined}
             className={`flex w-full items-center gap-3 rounded-lg px-3.5 py-2.5 text-[13.5px] font-medium text-[#C1442E] transition hover:bg-[#C1442E]/[0.08] ${
               collapsed ? 'justify-center px-0' : ''
             }`}
           >
             <LogOut size={19} />
-            {!collapsed && <span>Logout</span>}
+            {!collapsed && <span>{t('nav.logout')}</span>}
           </button>
         </div>
       </div>
     )
   }
 
-  // ---------- Mobile ----------
   return (
     <>
-      <div className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between border-b border-black/5 bg-[#FBF9F5]/95 px-4 py-3 backdrop-blur md:hidden">
+      <div className="fixed left-0 right-0 top-0 z-50 flex items-center justify-between border-b border-[var(--border)] bg-[var(--surface-muted)]/95 px-4 py-3 backdrop-blur md:hidden">
         <div className="flex items-center gap-2">
-          <LedgerMark size={26} />
-          <h1 className="font-serif text-lg font-bold tracking-tight text-[#1F2A24]">EthioGenz</h1>
+          <BrandLogo size={28} />
+          <h1 className="text-lg font-bold tracking-tight">
+            <span className="text-[var(--enat-green)] dark:text-[#7dcea0]">ENAT</span>{' '}
+            <span className="text-[#B88A44]">AI</span>
+          </h1>
         </div>
-        <button
-          onClick={() => setIsSidebarOpen((o) => !o)}
-          className="rounded-lg p-2 text-[#1F2A24]/70 hover:bg-black/5"
-          aria-label={isSidebarOpen ? 'Close menu' : 'Open menu'}
-        >
-          {isSidebarOpen ? <X size={22} /> : <Menu size={22} />}
-        </button>
+        <div className="flex items-center gap-1.5">
+          <LanguageToggle className="border-[var(--border)] bg-[var(--surface)] text-[var(--enat-ink)]" />
+          <ThemeToggle className="border-[var(--border)] bg-[var(--surface)] text-[var(--enat-ink)]" />
+          <button
+            onClick={() => setIsSidebarOpen((o) => !o)}
+            className="rounded-lg p-2 text-[var(--enat-ink)] hover:bg-black/5 dark:hover:bg-white/5"
+            aria-label={isSidebarOpen ? 'Close menu' : 'Open menu'}
+          >
+            {isSidebarOpen ? <X size={22} /> : <Menu size={22} />}
+          </button>
+        </div>
       </div>
 
       {isSidebarOpen && (
@@ -250,25 +265,22 @@ export default function Navigation({ activeTab, onTabChange, user, onLogout, bad
             className="fixed inset-0 z-40 bg-black/40 backdrop-blur-[1px] md:hidden"
             onClick={() => setIsSidebarOpen(false)}
           />
-          <div className="fixed left-0 top-0 z-50 h-screen w-72 bg-[#FBF9F5] shadow-2xl md:hidden">
-            <div className="flex items-center gap-2.5 border-b border-black/5 px-5 py-5">
-              <LedgerMark size={30} />
-              <div>
-                <h1 className="font-serif text-lg font-bold tracking-tight text-[#1F2A24]">EthioGenz</h1>
-                <p className="text-[11px] font-medium text-[#1F2A24]/45">Smart Ledger</p>
-              </div>
+          <div className="fixed left-0 top-0 z-50 h-screen w-72 bg-[var(--surface-muted)] shadow-2xl md:hidden">
+            <div className="flex items-center gap-2.5 border-b border-[var(--border)] px-5 py-5">
+              <BrandLogo size={34} />
+              <BrandWordmark />
             </div>
 
             {user && (
-              <div className="border-b border-black/5 px-4 py-3.5">
+              <div className="border-b border-[var(--border)] px-4 py-3.5">
                 <div className="flex items-center gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#0F6B4C] text-xs font-semibold text-white">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[var(--enat-green-mid)] text-xs font-semibold text-white">
                     {initials(user.name)}
                   </div>
                   <div className="min-w-0">
-                    <p className="truncate text-[13px] font-semibold text-[#1F2A24]">{user.name}</p>
+                    <p className="truncate text-[13px] font-semibold text-[var(--enat-ink)]">{user.name}</p>
                     {user.businessName && (
-                      <p className="flex items-center gap-1 truncate text-[11px] text-[#1F2A24]/50">
+                      <p className="flex items-center gap-1 truncate text-[11px] text-[var(--muted)]">
                         <Building2 size={11} /> {user.businessName}
                       </p>
                     )}
@@ -278,9 +290,10 @@ export default function Navigation({ activeTab, onTabChange, user, onLogout, bad
             )}
 
             <nav className="flex-1 space-y-1 p-3">
-              {tabs.map((tab) => {
+              {TAB_IDS.map((tab) => {
                 const Icon = tab.icon
                 const isActive = activeTab === tab.id
+                const label = t(tab.labelKey)
                 const count = badges?.[tab.id]
                 return (
                   <button
@@ -290,21 +303,23 @@ export default function Navigation({ activeTab, onTabChange, user, onLogout, bad
                       setIsSidebarOpen(false)
                     }}
                     className={`relative flex w-full items-center gap-3 rounded-lg px-3.5 py-2.5 text-[13.5px] font-medium transition-colors ${
-                      isActive ? 'bg-[#0F6B4C]/[0.08] text-[#0F6B4C]' : 'text-[#1F2A24]/60 hover:bg-black/[0.03]'
+                      isActive
+                        ? 'bg-[var(--enat-green-mid)]/10 text-[var(--enat-green-mid)]'
+                        : 'text-[var(--muted)] hover:bg-black/[0.03] dark:hover:bg-white/[0.04]'
                     }`}
                   >
                     {isActive && (
-                      <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-[#E5A823]" />
+                      <span className="absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-[#B88A44]" />
                     )}
                     <Icon size={19} strokeWidth={isActive ? 2.4 : 2} />
-                    <span>{tab.label}</span>
+                    <span>{label}</span>
                     {count ? <Badge count={count} /> : null}
                   </button>
                 )
               })}
             </nav>
 
-            <div className="border-t border-black/5 p-3">
+            <div className="border-t border-[var(--border)] p-3">
               <button
                 onClick={() => {
                   onLogout()
@@ -313,19 +328,19 @@ export default function Navigation({ activeTab, onTabChange, user, onLogout, bad
                 className="flex w-full items-center gap-3 rounded-lg px-3.5 py-2.5 text-[13.5px] font-medium text-[#C1442E] hover:bg-[#C1442E]/[0.08]"
               >
                 <LogOut size={19} />
-                <span>Logout</span>
+                <span>{t('nav.logout')}</span>
               </button>
             </div>
           </div>
         </>
       )}
 
-      {/* Bottom tab bar */}
-      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-black/5 bg-[#FBF9F5]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
+      <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border)] bg-[var(--surface-muted)]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
         <div className="flex items-stretch justify-around px-1 py-1.5">
-          {tabs.map((tab) => {
+          {TAB_IDS.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
+            const label = t(tab.labelKey)
             const count = badges?.[tab.id]
             return (
               <button
@@ -335,16 +350,24 @@ export default function Navigation({ activeTab, onTabChange, user, onLogout, bad
               >
                 <div
                   className={`relative rounded-lg p-1.5 transition-colors ${
-                    isActive ? 'bg-[#0F6B4C]/[0.1]' : ''
+                    isActive ? 'bg-[var(--enat-green-mid)]/10' : ''
                   }`}
                 >
-                  <Icon size={21} className={isActive ? 'text-[#0F6B4C]' : 'text-[#1F2A24]/45'} strokeWidth={isActive ? 2.4 : 2} />
+                  <Icon
+                    size={21}
+                    className={isActive ? 'text-[var(--enat-green-mid)]' : 'text-[var(--muted)]'}
+                    strokeWidth={isActive ? 2.4 : 2}
+                  />
                   {count ? (
                     <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-[#C1442E]" />
                   ) : null}
                 </div>
-                <span className={`text-[10px] font-medium ${isActive ? 'text-[#0F6B4C]' : 'text-[#1F2A24]/45'}`}>
-                  {tab.label}
+                <span
+                  className={`text-[10px] font-medium ${
+                    isActive ? 'text-[var(--enat-green-mid)]' : 'text-[var(--muted)]'
+                  }`}
+                >
+                  {label}
                 </span>
               </button>
             )

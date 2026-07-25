@@ -1,6 +1,6 @@
 'use client'
 import { Search, ChevronDown, Inbox, SearchX } from 'lucide-react'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 
 interface Transaction {
   id: string
@@ -35,6 +35,12 @@ const SOURCE_STYLES: Record<string, { label: string; className: string }> = {
 export default function TransactionsContent({ transactions, onMarkAsPaid }: TransactionsContentProps) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState('all')
+
+  // #region agent log
+  useEffect(() => {
+    fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'i18n-pre',hypothesisId:'A',location:'TransactionsContent.tsx:mount',message:'TransactionsContent render — hardcoded EN?',data:{usesI18n:false,docLang:typeof document!=='undefined'?document.documentElement.lang:'?',hardcodedTitle:'All transactions'},timestamp:Date.now()})}).catch(()=>{});
+  }, [])
+  // #endregion
 
   // ✅ FIX: Safe filtering - handle null customer
   const filtered = transactions.filter((t) => {

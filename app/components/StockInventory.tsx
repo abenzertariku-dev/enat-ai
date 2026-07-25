@@ -49,12 +49,14 @@ export default function StockInventory({ items, onRefresh, onUpdateItem }: Stock
         headers: getAuthHeaders(),
         body: JSON.stringify({
           id,
-          quantity: { increment: change }
-        })
+          quantity: { increment: change },
+        }),
       })
       if (res.ok) {
-        toast.success(`Stock updated!`)
+        toast.success('Stock updated!')
         onRefresh()
+      } else {
+        toast.error('Failed to update stock')
       }
     } catch (error) {
       toast.error('Failed to update stock')

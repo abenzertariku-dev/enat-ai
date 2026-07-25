@@ -75,7 +75,14 @@ interface DashboardContentProps {
   stats: DashboardStats
   transactions: Transaction[]
   onMarkAsPaid: (id: string) => void
-  onAddSample: () => void
+  onAddTransaction: (data: {
+    customerName: string
+    product: string
+    amount: number
+    quantity: number
+    type: 'credit' | 'debit'
+    status: 'paid' | 'unpaid'
+  }) => Promise<void> | void
   onRefresh?: () => void
   isLoading: boolean
   isRefreshing?: boolean
@@ -212,7 +219,7 @@ export default function DashboardContent({
   transactions,
   topCustomers = [],
   onMarkAsPaid,
-  onAddSample,
+  onAddTransaction,
   onRefresh,
   isLoading,
   isRefreshing = false,
@@ -223,6 +230,47 @@ export default function DashboardContent({
   const [searchQuery, setSearchQuery] = useState('')
   const [showFilters, setShowFilters] = useState(false)
   const [timeRange, setTimeRange] = useState<'week' | 'month'>('week')
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [form, setForm] = useState({
+    customerName: '',
+    product: '',
+    amount: '',
+    quantity: '1',
+    type: 'credit' as 'credit' | 'debit',
+    status: 'unpaid' as 'paid' | 'unpaid',
+  })
+
+  // #region agent log
+  useEffect(() => {
+    fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'i18n-pre',hypothesisId:'A',location:'DashboardContent.tsx:mount',message:'DashboardContent render — hardcoded EN?',data:{usesI18n:false,docLang:typeof document!=='undefined'?document.documentElement.lang:'?',hardcodedLabel:"Today's Sales"},timestamp:Date.now()})}).catch(()=>{});
+  }, [])
+  // #endregion
+
+  const submitTransaction = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const amount = parseFloat(form.amount)
+    const quantity = parseFloat(form.quantity) || 1
+    if (!form.customerName.trim() || !form.product.trim() || !Number.isFinite(amount) || amount <= 0) {
+      return
+    }
+    await onAddTransaction({
+      customerName: form.customerName.trim(),
+      product: form.product.trim(),
+      amount,
+      quantity,
+      type: form.type,
+      status: form.status,
+    })
+    setForm({
+      customerName: '',
+      product: '',
+      amount: '',
+      quantity: '1',
+      type: 'credit',
+      status: 'unpaid',
+    })
+    setShowAddForm(false)
+  }
 
   // ─── Memoized Computations ─────────────────────────────────────────
 
@@ -548,15 +596,128 @@ export default function DashboardContent({
         )}
       </div>
 
-      {/* ── Quick Demo ── */}
+      {/* ── Add transaction ── */}
       <button
-        onClick={onAddSample}
+        onClick={() => setShowAddForm(true)}
         disabled={isLoading}
         className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0F6B4C] p-3 font-medium text-white transition hover:bg-[#0B5A3F] disabled:opacity-50"
       >
         <Zap size={16} />
-        {isLoading ? '⏳ Processing…' : '⚡ Quick demo: add sample transaction'}
+        {isLoading ? 'Saving…' : 'Add transaction'}
       </button>
+
+      {showAddForm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div className="mb-4 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-[#1F2A24]">Add transaction</h3>
+              <button
+                type="button"
+                onClick={() => setShowAddForm(false)}
+                className="rounded-lg p-1.5 text-[#1F2A24]/50 hover:bg-black/5"
+                aria-label="Close"
+              >
+                <X size={18} />
+              </button>
+            </div>
+            <form onSubmit={submitTransaction} className="space-y-3">
+              <div>
+                <label className="mb-1 block text-[12px] font-medium text-[#1F2A24]/60">Customer name</label>
+                <input
+                  required
+                  value={form.customerName}
+                  onChange={(e) => setForm((f) => ({ ...f, customerName: e.target.value }))}
+                  className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0F6B4C]/30"
+                  placeholder="Customer name"
+                />
+              </div>
+              <div>
+                <label className="mb-1 block text-[12px] font-medium text-[#1F2A24]/60">Product</label>
+                <input
+                  required
+                  value={form.product}
+                  onChange={(e) => setForm((f) => ({ ...f, product: e.target.value }))}
+                  className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0F6B4C]/30"
+                  placeholder="Product or item"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-[12px] font-medium text-[#1F2A24]/60">Amount (Br)</label>
+                  <input
+                    required
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={form.amount}
+                    onChange={(e) => setForm((f) => ({ ...f, amount: e.target.value }))}
+                    className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0F6B4C]/30"
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1 block text-[12px] font-medium text-[#1F2A24]/60">Quantity</label>
+                  <input
+                    type="number"
+                    min="0.01"
+                    step="0.01"
+                    value={form.quantity}
+                    onChange={(e) => setForm((f) => ({ ...f, quantity: e.target.value }))}
+                    className="w-full rounded-xl border border-black/10 px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0F6B4C]/30"
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="mb-1 block text-[12px] font-medium text-[#1F2A24]/60">Type</label>
+                  <select
+                    value={form.type}
+                    onChange={(e) => {
+                      const type = e.target.value as 'credit' | 'debit'
+                      setForm((f) => ({
+                        ...f,
+                        type,
+                        status: type === 'credit' ? 'unpaid' : 'paid',
+                      }))
+                    }}
+                    className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0F6B4C]/30"
+                  >
+                    <option value="credit">Credit (sale / debt)</option>
+                    <option value="debit">Debit (payment received)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1 block text-[12px] font-medium text-[#1F2A24]/60">Status</label>
+                  <select
+                    value={form.status}
+                    onChange={(e) => setForm((f) => ({ ...f, status: e.target.value as 'paid' | 'unpaid' }))}
+                    className="w-full rounded-xl border border-black/10 bg-white px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#0F6B4C]/30"
+                  >
+                    <option value="unpaid">Unpaid</option>
+                    <option value="paid">Paid</option>
+                  </select>
+                </div>
+              </div>
+              <div className="flex gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowAddForm(false)}
+                  className="flex-1 rounded-xl border border-black/10 py-2.5 text-sm font-medium text-[#1F2A24]/60 hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={isLoading}
+                  className="flex-1 rounded-xl bg-[#0F6B4C] py-2.5 text-sm font-medium text-white hover:bg-[#0B5A3F] disabled:opacity-50"
+                >
+                  {isLoading ? 'Saving…' : 'Save'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ── Transactions List ── */}
       <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-[0_1px_2px_rgba(0,0,0,0.04)]">

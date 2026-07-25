@@ -96,7 +96,7 @@ Oil,40,liters,15,Groceries`
 12,8
 180,150`
 
-  const fillSample = () => {
+  const fillDefaults = () => {
     setItemsText(sampleItems)
     setPricesText(samplePrices)
   }
@@ -109,10 +109,10 @@ Oil,40,liters,15,Groceries`
           <p className="text-sm text-[#1F2A24]/50">Add multiple items at once</p>
         </div>
         <button
-          onClick={fillSample}
+          onClick={fillDefaults}
           className="text-sm text-emerald-600 hover:text-emerald-700 font-medium"
         >
-          Load Sample
+          Fill example rows
         </button>
       </div>
 

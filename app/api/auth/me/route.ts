@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
 import jwt from 'jsonwebtoken'
+import { getSubscriptionSnapshot, trialEndFrom } from '@/lib/subscription'
 
 export async function GET(req: NextRequest) {
   try {
@@ -17,7 +18,7 @@ export async function GET(req: NextRequest) {
       userId: string
     }
 
-    const user = await prisma.user.findUnique({
+    let user = await prisma.user.findUnique({
       where: { id: decoded.userId },
       select: {
         id: true,
@@ -25,8 +26,12 @@ export async function GET(req: NextRequest) {
         email: true,
         businessName: true,
         phone: true,
-        createdAt: true
-      }
+        plan: true,
+        subscriptionStatus: true,
+        trialEndsAt: true,
+        premiumUntil: true,
+        createdAt: true,
+      },
     })
 
     if (!user) {
@@ -36,7 +41,33 @@ export async function GET(req: NextRequest) {
       )
     }
 
-    return NextResponse.json({ user })
+    // Backfill trial for existing accounts created before subscriptions
+    if (!user.trialEndsAt) {
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          plan: user.plan || 'trial',
+          subscriptionStatus: user.subscriptionStatus || 'trialing',
+          trialEndsAt: trialEndFrom(user.createdAt),
+        },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          businessName: true,
+          phone: true,
+          plan: true,
+          subscriptionStatus: true,
+          trialEndsAt: true,
+          premiumUntil: true,
+          createdAt: true,
+        },
+      })
+    }
+
+    const subscription = getSubscriptionSnapshot(user)
+
+    return NextResponse.json({ user, subscription })
   } catch (error) {
     return NextResponse.json(
       { error: 'Invalid token' },
