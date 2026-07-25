@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 <div align="center">
   <img src="https://via.placeholder.com/800x200/0F6B4C/ffffff?text=📒+EthioGenz+Ledger" alt="EthioGenz Ledger Banner" width="800" />
   
@@ -290,3 +291,7 @@ Method	Endpoint	Description
 GET	/api/ai/debt-guardian	AI debt analysis
 POST	/api/ai/insights	AI business insights
 🚀 Deployment
+=======
+# enat-ai
+enat Ai Ledger is an AI-powered bookkeeping assistant designed for small businesses and retail merchants in Ethiopia. Many merchants still rely on handwritten notebooks to record sales and customer debts, making it difficult to track finances and make informed business decisions.
+>>>>>>> bba0298dcf07e054af4b0f4facb1c97277ef64a6
