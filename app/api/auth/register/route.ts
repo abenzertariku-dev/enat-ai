@@ -115,10 +115,30 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User already exists' }, { status: 400 })
     }
 
+    const errMessage = error instanceof Error ? error.message : String(error)
+    const code =
+      error instanceof Prisma.PrismaClientKnownRequestError
+        ? error.code
+        : error instanceof Prisma.PrismaClientInitializationError
+          ? 'INIT'
+          : 'UNKNOWN'
+
     console.error('Register Error:', error)
     // #region agent log
-    fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'auth-404',hypothesisId:'C',location:'auth/register/route.ts:catch',message:'register threw',data:{err:error instanceof Error?error.message:String(error)},timestamp:Date.now()})}).catch(()=>{});
+    fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'register-500',hypothesisId:'D',location:'auth/register/route.ts:catch',message:'register threw on server',data:{code,err:errMessage.slice(0,240)},timestamp:Date.now()})}).catch(()=>{});
     // #endregion
-    return NextResponse.json({ error: 'Registration failed' }, { status: 500 })
+    return NextResponse.json(
+      {
+        error: 'Registration failed',
+        code,
+        hint:
+          code === 'P2021' || /does not exist|no such table/i.test(errMessage)
+            ? 'Database tables missing — deploy must run prisma db push'
+            : /unable to open|SQLITE_CANTOPEN|Error code 14/i.test(errMessage)
+              ? 'Database file unavailable on server'
+              : undefined,
+      },
+      { status: 500 }
+    )
   }
 }
