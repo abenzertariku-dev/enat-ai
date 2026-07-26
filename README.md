@@ -170,3 +170,15 @@ enat-ai/
 ├── tsconfig.json # TypeScript config
 ├── tailwind.config.js # Tailwind config
 └── README.md # This file
+ENAT AI
+
+ENAT AI is an AI-powered assistant designed to help users interact with intelligent language models through a simple, modern web interface.
+
+🌐 Live Demo: https://enat-ai-1.onrender.com
+
+Features
+💬 AI-powered chat interface
+⚡ Fast and responsive UI
+🔐 Secure API integration
+📱 Mobile-friendly design
+🌍 Cloud deployment on Render
