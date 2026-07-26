@@ -15,7 +15,14 @@
     <img src="https://img.shields.io/badge/Status-Hackathon_Ready-brightgreen?style=flat-square" alt="Status" />
   </p>
   
-  
+  <p>
+    <a href="#-features">Features</a> •
+    <a href="#-technology-stack">Tech Stack</a> •
+    <a href="#-installation">Installation</a> •
+    <a href="#-api-documentation">API Docs</a> •
+    <a href="#-screenshots">Screenshots</a> •
+    <a href="#-contributing">Contributing</a>
+  </p>
 </div>
 
 ---
@@ -121,3 +128,52 @@ A simple mobile dashboard provides:
 ---
 
 ## 📁 **Project Structure**
+enat-ai/
+├── app/
+│ ├── api/
+│ │ ├── ai/
+│ │ │ ├── debt-guardian/route.ts # AI debt analysis
+│ │ │ └── insights/route.ts # AI business insights
+│ │ ├── auth/
+│ │ │ ├── login/route.ts # Login endpoint
+│ │ │ ├── register/route.ts # Registration endpoint
+│ │ │ └── me/route.ts # Get current user
+│ │ ├── stock/
+│ │ │ ├── route.ts # Stock CRUD
+│ │ │ └── alerts/route.ts # Stock alerts
+│ │ ├── stock-sales/route.ts # Sales tracking
+│ │ ├── dashboard/route.ts # Dashboard data
+│ │ ├── upload/route.ts # Image OCR
+│ │ ├── voice/route.ts # Voice processing
+│ │ └── transactions/route.ts # Transaction CRUD
+│ ├── components/
+│ │ ├── Navigation.tsx # Main navigation
+│ │ ├── DashboardContent.tsx # Dashboard
+│ │ ├── ScanContent.tsx # OCR scanner
+│ │ ├── VoiceContent.tsx # Voice input
+│ │ ├── TransactionsContent.tsx # Transactions list
+│ │ ├── CustomersContent.tsx # Customer management
+│ │ ├── BusinessInsights.tsx # Analytics
+│ │ ├── StockInventory.tsx # Stock management
+│ │ ├── StockImporter.tsx # Bulk import
+│ │ ├── StockSales.tsx # Sales recording
+│ │ ├── StockAlerts.tsx # Alerts
+│ │ ├── DebtGuardian.tsx # AI debt assistant
+│ │ └── SettingsContent.tsx # Settings
+│ ├── login/page.tsx # Login/Register page
+│ ├── dashboard/page.tsx # Dashboard page
+│ └── page.tsx # Landing page
+├── lib/
+│ ├── prisma.ts # Prisma client
+│ ├── gemini.ts # Gemini AI integration
+│ ├── stock.ts # Stock helpers
+│ └── transactions.ts # Transaction helpers
+├── prisma/
+│ └── schema.prisma # Database schema
+├── public/ # Static assets
+├── .env.example # Environment variables
+├── .gitignore # Git ignore
+├── package.json # Dependencies
+├── tsconfig.json # TypeScript config
+├── tailwind.config.js # Tailwind config
+└── README.md # This file
