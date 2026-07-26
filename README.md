@@ -22,7 +22,7 @@
 
 ## 📖 **Overview**
 
-**Enat AI Ledger** is an AI-powered digital bookkeeping assistant designed specifically for Ethiopian micro and small businesses. Using only a smartphone, merchants can transform traditional paper bookkeeping ("Defter") into an intelligent digital ledger without learning complicated accounting software.
+Enat AI is an AI-powered business employee built for Ethiopian wholesalers and distributors. It transforms handwritten records, voice notes, and text into structured digital transactions, automatically tracks inventory and customer credit, monitors outstanding debts, predicts payment risks, and provides actionable business insights. By automating repetitive administrative work, Enat AI helps merchants save time, improve cash flow, and make smarter business decisions without the complexity of traditional ERP systems.
 
 ### 🎯 **The Problem**
 
