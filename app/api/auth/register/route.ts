@@ -4,12 +4,22 @@ import bcrypt from 'bcryptjs'
 import { Prisma } from '@prisma/client'
 import { trialEndFrom } from '@/lib/subscription'
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 const MIN_PASSWORD_LENGTH = 8
 const MAX_PHONE_LENGTH = 15
 const MAX_TEXT_LENGTH = 255
 
+export async function GET() {
+  return NextResponse.json({ ok: true, route: '/api/auth/register', methods: ['POST'] })
+}
+
 export async function POST(req: NextRequest) {
+  // #region agent log
+  fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'auth-404',hypothesisId:'B',location:'auth/register/route.ts:POST',message:'register POST handler entered',data:{method:req.method,url:req.url},timestamp:Date.now()})}).catch(()=>{});
+  // #endregion
   try {
     const body = await req.json()
 
@@ -106,6 +116,9 @@ export async function POST(req: NextRequest) {
     }
 
     console.error('Register Error:', error)
+    // #region agent log
+    fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'auth-404',hypothesisId:'C',location:'auth/register/route.ts:catch',message:'register threw',data:{err:error instanceof Error?error.message:String(error)},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     return NextResponse.json({ error: 'Registration failed' }, { status: 500 })
   }
 }
