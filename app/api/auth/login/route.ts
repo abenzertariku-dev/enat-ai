@@ -18,9 +18,6 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  // #region agent log
-  fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'auth-404',hypothesisId:'B',location:'auth/login/route.ts:POST',message:'login POST handler entered',data:{method:req.method,url:req.url,hasJwt:Boolean(process.env.JWT_SECRET)},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   try {
     if (!process.env.JWT_SECRET) {
       console.error('Login Error: JWT_SECRET is not set')
@@ -98,9 +95,6 @@ export async function POST(req: NextRequest) {
     })
   } catch (error) {
     console.error('Login Error:', error)
-    // #region agent log
-    fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'auth-404',hypothesisId:'C',location:'auth/login/route.ts:catch',message:'login threw',data:{err:error instanceof Error?error.message:String(error)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     return NextResponse.json({ error: 'Login failed' }, { status: 500 })
   }
 }

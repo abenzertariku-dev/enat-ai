@@ -17,9 +17,6 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  // #region agent log
-  fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'auth-404',hypothesisId:'B',location:'auth/register/route.ts:POST',message:'register POST handler entered',data:{method:req.method,url:req.url},timestamp:Date.now()})}).catch(()=>{});
-  // #endregion
   try {
     const body = await req.json()
 
@@ -124,9 +121,6 @@ export async function POST(req: NextRequest) {
           : 'UNKNOWN'
 
     console.error('Register Error:', error)
-    // #region agent log
-    fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'register-500',hypothesisId:'D',location:'auth/register/route.ts:catch',message:'register threw on server',data:{code,err:errMessage.slice(0,240)},timestamp:Date.now()})}).catch(()=>{});
-    // #endregion
     return NextResponse.json(
       {
         error: 'Registration failed',
