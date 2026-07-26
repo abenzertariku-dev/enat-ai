@@ -271,10 +271,24 @@ export async function PUT(req: NextRequest) {
     }
 
     const premiumUntil = addMonths(new Date(), PREMIUM_MONTHS)
+    let prevMeta: Record<string, unknown> = {}
+    try {
+      if (payment.meta) prevMeta = JSON.parse(payment.meta) as Record<string, unknown>
+    } catch {
+      prevMeta = {}
+    }
+    const meta = JSON.stringify({
+      ...prevMeta,
+      proofImage,
+      confirmedAt: new Date().toISOString(),
+    })
+    // #region agent log
+    fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'post-fix',hypothesisId:'A',location:'payments/route.ts:PUT',message:'confirm payment storing proof in meta (type-safe)',data:{hasProof:Boolean(proofImage),proofLen:proofImage?proofImage.length:0,txRefPresent:Boolean(txRef),metaKeys:Object.keys(prevMeta).concat(['proofImage','confirmedAt'])},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
     await prisma.$transaction([
       prisma.payment.update({
         where: { id: payment.id },
-        data: { status: 'success', proofImage },
+        data: { status: 'success', meta },
       }),
       prisma.user.update({
         where: { id: userId },
