@@ -15,14 +15,7 @@
     <img src="https://img.shields.io/badge/Status-Hackathon_Ready-brightgreen?style=flat-square" alt="Status" />
   </p>
   
-  <p>
-    <a href="#-features">Features</a> •
-    <a href="#-technology-stack">Tech Stack</a> •
-    <a href="#-installation">Installation</a> •
-    <a href="#-api-documentation">API Docs</a> •
-    <a href="#-screenshots">Screenshots</a> •
-    <a href="#-contributing">Contributing</a>
-  </p>
+ 
 </div>
 
 ---
