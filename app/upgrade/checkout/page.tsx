@@ -1,11 +1,15 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useRef, useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import toast from 'react-hot-toast'
+import { ImagePlus, X } from 'lucide-react'
 import BrandLogo from '@/app/components/BrandLogo'
 import { PREMIUM_PRICE_ETB } from '@/lib/subscription'
 import { useI18n } from '@/lib/i18n'
+
+const ACCEPTED = ['image/jpeg', 'image/png', 'image/webp', 'image/heic']
+const MAX_BYTES = 8 * 1024 * 1024
 
 function CheckoutInner() {
   const router = useRouter()
@@ -14,6 +18,8 @@ function CheckoutInner() {
   const provider = params.get('provider') === 'telebirr' ? 'telebirr' : 'chapa'
   const txRef = params.get('tx_ref') || ''
   const [confirming, setConfirming] = useState(false)
+  const [proof, setProof] = useState<{ file: File; url: string } | null>(null)
+  const fileRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     if (!localStorage.getItem('token')) {
@@ -21,21 +27,54 @@ function CheckoutInner() {
     }
   }, [router])
 
+  useEffect(() => {
+    return () => {
+      if (proof) URL.revokeObjectURL(proof.url)
+    }
+  }, [proof])
+
+  const pickProof = (file: File | undefined) => {
+    if (!file) return
+    if (file.type && !ACCEPTED.includes(file.type)) {
+      toast.error(t('upgrade.proofBadType'))
+      return
+    }
+    if (file.size > MAX_BYTES) {
+      toast.error(t('upgrade.proofTooLarge'))
+      return
+    }
+    if (proof) URL.revokeObjectURL(proof.url)
+    setProof({ file, url: URL.createObjectURL(file) })
+  }
+
+  const clearProof = () => {
+    if (proof) URL.revokeObjectURL(proof.url)
+    setProof(null)
+    if (fileRef.current) fileRef.current.value = ''
+  }
+
   const confirm = async () => {
     if (!txRef) {
       toast.error(t('upgrade.missingRef'))
       return
     }
+    if (!proof) {
+      toast.error(t('upgrade.proofRequired'))
+      return
+    }
     setConfirming(true)
     try {
       const token = localStorage.getItem('token')
+      const form = new FormData()
+      form.append('txRef', txRef)
+      form.append('proof', proof.file)
+
       const res = await fetch('/api/payments', {
         method: 'PUT',
         headers: {
           Authorization: `Bearer ${token}`,
-          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ txRef }),
+        body: form,
       })
       const data = await res.json()
       if (!res.ok) {
@@ -71,19 +110,52 @@ function CheckoutInner() {
           />
         </div>
 
-        <div className="mt-5 rounded-xl bg-[var(--surface-muted)] p-4 text-[13px] text-[var(--muted)]">
-          {provider === 'chapa' ? (
-            <p>{t('upgrade.chapaHint')}</p>
+        <div className="mt-5">
+          <p className="mb-2 text-[13px] font-medium text-[var(--enat-ink)]">{t('upgrade.proofLabel')}</p>
+          <p className="mb-3 text-[12px] text-[var(--muted)]">{t('upgrade.proofHint')}</p>
+
+          {!proof ? (
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              className="flex w-full flex-col items-center gap-2 rounded-xl border-2 border-dashed border-[var(--border)] bg-[var(--surface-muted)] px-4 py-8 text-[var(--muted)] transition hover:border-[var(--enat-green-mid)] hover:text-[var(--enat-ink)]"
+            >
+              <ImagePlus size={28} />
+              <span className="text-[13px] font-medium">{t('upgrade.proofUpload')}</span>
+              <span className="text-[11px]">JPG, PNG, WebP · max 8 MB</span>
+            </button>
           ) : (
-            <p>
-              {t('upgrade.telebirrHint', { price: PREMIUM_PRICE_ETB, ref: txRef || '—' })}
-            </p>
+            <div className="relative overflow-hidden rounded-xl border border-[var(--border)]">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={proof.url} alt="Payment proof" className="max-h-56 w-full object-contain bg-[var(--surface-muted)]" />
+              <button
+                type="button"
+                onClick={clearProof}
+                className="absolute right-2 top-2 rounded-full bg-black/60 p-1.5 text-white hover:bg-black/75"
+                aria-label={t('common.close')}
+              >
+                <X size={16} />
+              </button>
+              <p className="truncate px-3 py-2 text-[11px] text-[var(--muted)]">{proof.file.name}</p>
+            </div>
           )}
+
+          <input
+            ref={fileRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            className="hidden"
+            onChange={(e) => {
+              pickProof(e.target.files?.[0])
+              e.target.value = ''
+            }}
+          />
         </div>
 
         <button
           type="button"
-          disabled={confirming || !txRef}
+          disabled={confirming || !txRef || !proof}
           onClick={confirm}
           className="mt-5 w-full rounded-xl bg-[var(--enat-green-mid)] py-3 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-50"
         >

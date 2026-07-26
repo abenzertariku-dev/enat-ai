@@ -336,7 +336,7 @@ export default function Navigation({
       )}
 
       <div className="fixed bottom-0 left-0 right-0 z-50 border-t border-[var(--border)] bg-[var(--surface-muted)]/95 pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
-        <div className="flex items-stretch justify-around px-1 py-1.5">
+        <div className="flex w-full items-stretch justify-between gap-0 px-0.5 py-1">
           {TAB_IDS.map((tab) => {
             const Icon = tab.icon
             const isActive = activeTab === tab.id
@@ -346,15 +346,16 @@ export default function Navigation({
               <button
                 key={tab.id}
                 onClick={() => go(tab.id)}
-                className="relative flex min-w-[52px] flex-col items-center gap-0.5 rounded-lg px-2 py-1"
+                title={label}
+                className="relative flex min-w-0 flex-1 flex-col items-center gap-0.5 rounded-md px-0.5 py-1"
               >
                 <div
-                  className={`relative rounded-lg p-1.5 transition-colors ${
+                  className={`relative rounded-md p-1 transition-colors ${
                     isActive ? 'bg-[var(--enat-green-mid)]/10' : ''
                   }`}
                 >
                   <Icon
-                    size={21}
+                    size={18}
                     className={isActive ? 'text-[var(--enat-green-mid)]' : 'text-[var(--muted)]'}
                     strokeWidth={isActive ? 2.4 : 2}
                   />
@@ -363,7 +364,7 @@ export default function Navigation({
                   ) : null}
                 </div>
                 <span
-                  className={`text-[10px] font-medium ${
+                  className={`w-full truncate text-center text-[9px] font-medium leading-tight ${
                     isActive ? 'text-[var(--enat-green-mid)]' : 'text-[var(--muted)]'
                   }`}
                 >

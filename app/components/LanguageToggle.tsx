@@ -18,12 +18,7 @@ export default function LanguageToggle({ className = '' }: { className?: string 
         <button
           key={opt.id}
           type="button"
-          onClick={() => {
-            // #region agent log
-            fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'post-fix',hypothesisId:'C',location:'LanguageToggle.tsx:setLocale',message:'locale toggle clicked',data:{from:locale,to:opt.id},timestamp:Date.now()})}).catch(()=>{});
-            // #endregion
-            setLocale(opt.id)
-          }}
+          onClick={() => setLocale(opt.id)}
           className={`rounded-md px-2.5 py-1.5 transition ${
             locale === opt.id
               ? 'bg-[#B88A44] text-[#082A20]'

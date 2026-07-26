@@ -225,7 +225,7 @@ export default function DashboardContent({
   isLoading,
   isRefreshing = false,
 }: DashboardContentProps) {
-  const { t, locale } = useI18n()
+  const { t } = useI18n()
 
   // ─── State ──────────────────────────────────────────────────────────
 
@@ -242,12 +242,6 @@ export default function DashboardContent({
     type: 'credit' as 'credit' | 'debit',
     status: 'unpaid' as 'paid' | 'unpaid',
   })
-
-  // #region agent log
-  useEffect(() => {
-    fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'post-fix',hypothesisId:'A',location:'DashboardContent.tsx:mount',message:'DashboardContent render — hardcoded EN?',data:{usesI18n:true,locale,docLang:typeof document!=='undefined'?document.documentElement.lang:'?',hardcodedLabel:t('dash.todaySales')},timestamp:Date.now()})}).catch(()=>{});
-  }, [locale, t])
-  // #endregion
 
   const submitTransaction = async (e: React.FormEvent) => {
     e.preventDefault()

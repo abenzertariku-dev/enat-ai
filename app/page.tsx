@@ -4,7 +4,7 @@ import { useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Mic, Camera, LineChart, ArrowRight } from 'lucide-react'
+import { ArrowRight } from 'lucide-react'
 import BrandLogo from '@/app/components/BrandLogo'
 import ThemeToggle from '@/app/components/ThemeToggle'
 import LanguageToggle from '@/app/components/LanguageToggle'
@@ -15,22 +15,6 @@ export default function LandingPage() {
   const { t } = useI18n()
 
   useEffect(() => {
-    // #region agent log
-    fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'X-Debug-Session-Id': '984a50' },
-      body: JSON.stringify({
-        sessionId: '984a50',
-        runId: 'hero-update',
-        hypothesisId: 'H1',
-        location: 'app/page.tsx:mount',
-        message: 'Landing with custom hero bg',
-        data: { heroSrc: '/hero-bg.jpg' },
-        timestamp: Date.now(),
-      }),
-    }).catch(() => {})
-    // #endregion
-
     const token = localStorage.getItem('token')
     if (!token) return
 
@@ -49,9 +33,9 @@ export default function LandingPage() {
   }, [router])
 
   const featureItems = [
-    { icon: Mic, title: t('features.voice.title'), body: t('features.voice.body') },
-    { icon: Camera, title: t('features.scan.title'), body: t('features.scan.body') },
-    { icon: LineChart, title: t('features.insights.title'), body: t('features.insights.body') },
+    { title: t('features.voice.title'), body: t('features.voice.body') },
+    { title: t('features.scan.title'), body: t('features.scan.body') },
+    { title: t('features.insights.title'), body: t('features.insights.body') },
   ]
 
   return (
@@ -142,16 +126,13 @@ export default function LandingPage() {
           </p>
 
           <div className="mt-10 grid gap-4 md:grid-cols-3">
-            {featureItems.map(({ icon: Icon, title, body }, i) => (
+            {featureItems.map(({ title, body }, i) => (
               <article
                 key={title}
                 className="animate-rise-delayed rounded-2xl border border-black/5 bg-[var(--surface)] p-5 shadow-[0_8px_30px_rgba(8,18,36,0.1)] dark:border-white/10"
                 style={{ animationDelay: `${80 + i * 80}ms` }}
               >
-                <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-[var(--enat-green-mid)]/10 text-[var(--enat-green-mid)]">
-                  <Icon size={22} strokeWidth={1.75} aria-hidden />
-                </div>
-                <h3 className="mt-4 font-serif text-[1.1rem] font-semibold text-[var(--enat-ink)]">
+                <h3 className="font-serif text-[1.1rem] font-semibold text-[var(--enat-ink)]">
                   {title}
                 </h3>
                 <p className="mt-2 text-[13.5px] leading-relaxed text-[var(--muted)]">{body}</p>

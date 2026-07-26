@@ -47,6 +47,8 @@ model Payment {
   txRef       String   @unique
   checkoutUrl String?
   phone       String?
+  /// Base64 data URL of payment screenshot proof
+  proofImage  String?
   meta        String?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt

@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
             phone_number: payment.phone || undefined,
             tx_ref: txRef,
             callback_url: `${origin}/api/payments/chapa/callback`,
-            return_url: `${origin}/dashboard?payment=chapa&tx_ref=${txRef}`,
+            return_url: `${origin}/upgrade/checkout?provider=chapa&tx_ref=${txRef}`,
             customization: {
               title: 'ENAT AI Premium',
               description: '1 month premium subscription',
@@ -194,14 +194,49 @@ export async function POST(req: NextRequest) {
   }
 }
 
-/** Confirm / verify a payment (Chapa verify or Telebirr/simulated complete) */
+const MAX_PROOF_BYTES = 8 * 1024 * 1024
+const PROOF_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic']
+
+/** Confirm / verify a payment — requires screenshot proof */
 export async function PUT(req: NextRequest) {
   try {
     const userId = getUserId(req)
     if (!userId) return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
 
-    const { txRef } = await req.json()
+    const contentType = req.headers.get('content-type') || ''
+    let txRef = ''
+    let proofImage: string | null = null
+
+    if (contentType.includes('multipart/form-data')) {
+      const form = await req.formData()
+      txRef = String(form.get('txRef') || '')
+      const proof = form.get('proof')
+      if (proof instanceof File) {
+        if (proof.size > MAX_PROOF_BYTES) {
+          return NextResponse.json({ error: 'Proof image is too large (max 8MB)' }, { status: 400 })
+        }
+        if (proof.type && !PROOF_TYPES.includes(proof.type)) {
+          return NextResponse.json({ error: 'Proof must be JPG, PNG, WebP, or HEIC' }, { status: 400 })
+        }
+        const bytes = await proof.arrayBuffer()
+        const mime = proof.type || 'image/jpeg'
+        proofImage = `data:${mime};base64,${Buffer.from(bytes).toString('base64')}`
+      }
+    } else {
+      const body = await req.json()
+      txRef = body.txRef || ''
+      if (typeof body.proofImage === 'string' && body.proofImage.startsWith('data:image/')) {
+        proofImage = body.proofImage
+      }
+    }
+
     if (!txRef) return NextResponse.json({ error: 'tx_ref required' }, { status: 400 })
+    if (!proofImage) {
+      return NextResponse.json(
+        { error: 'Payment screenshot proof is required' },
+        { status: 400 }
+      )
+    }
 
     const payment = await prisma.payment.findFirst({
       where: { txRef, userId },
@@ -239,7 +274,7 @@ export async function PUT(req: NextRequest) {
     await prisma.$transaction([
       prisma.payment.update({
         where: { id: payment.id },
-        data: { status: 'success' },
+        data: { status: 'success', proofImage },
       }),
       prisma.user.update({
         where: { id: userId },

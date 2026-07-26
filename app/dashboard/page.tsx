@@ -42,14 +42,8 @@ const PAGE_TITLE_KEYS: Record<string, string> = {
 
 export default function Home() {
   const router = useRouter()
-  const { t, locale } = useI18n()
+  const { t } = useI18n()
   const [activeTab, setActiveTab] = useState('dashboard')
-
-  // #region agent log
-  useEffect(() => {
-    fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'post-fix',hypothesisId:'E',location:'dashboard/page.tsx:tab',message:'active tab + chrome title translated?',data:{activeTab,pageTitle:t(PAGE_TITLE_KEYS[activeTab]||'page.dashboard'),locale,docLang:typeof document!=='undefined'?document.documentElement.lang:'?',storedLocale:typeof localStorage!=='undefined'?localStorage.getItem('enat-locale'):null},timestamp:Date.now()})}).catch(()=>{});
-  }, [activeTab, t, locale])
-  // #endregion
   const [isLoading, setIsLoading] = useState(true)
   const [user, setUser] = useState<UserData | null>(null)
   const [subscription, setSubscription] = useState<SubscriptionSnapshot | null>(null)
@@ -119,34 +113,15 @@ export default function Home() {
       })
   }, [router])
 
-  // Complete Chapa/Telebirr return if tx_ref is in the URL
+  // Send Chapa/Telebirr returns to checkout so screenshot proof can be uploaded
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     const txRef = params.get('tx_ref')
     if (!txRef) return
-
-    const token = localStorage.getItem('token')
-    if (!token) return
-
-    fetch('/api/payments', {
-      method: 'PUT',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({ txRef }),
-    })
-      .then(async (res) => {
-        const data = await res.json()
-        if (res.ok && data.subscription) {
-          setSubscription(data.subscription)
-          toast.success('Premium activated!')
-        }
-        window.history.replaceState({}, '', '/dashboard')
-      })
-      .catch(() => {})
-  }, [])
+    const provider = params.get('payment') === 'telebirr' ? 'telebirr' : 'chapa'
+    router.replace(`/upgrade/checkout?provider=${provider}&tx_ref=${encodeURIComponent(txRef)}`)
+  }, [router])
 
   const fetchDashboard = async () => {
     try {

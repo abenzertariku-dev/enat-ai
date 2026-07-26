@@ -19,19 +19,13 @@ export default function UpgradePremium({
   onUpdated,
   forceShowPayments,
 }: Props) {
-  const { t, locale } = useI18n()
+  const { t } = useI18n()
   const [loading, setLoading] = useState<'chapa' | 'telebirr' | null>(null)
   const [phone, setPhone] = useState(userPhone || '')
 
   useEffect(() => {
     setPhone(userPhone || '')
   }, [userPhone])
-
-  // #region agent log
-  useEffect(() => {
-    fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'post-fix',hypothesisId:'A',location:'UpgradePremium.tsx:mount',message:'UpgradePremium render — hardcoded EN?',data:{usesI18n:true,locale,docLang:typeof document!=='undefined'?document.documentElement.lang:'?',hardcodedTitle:t('upgrade.title')},timestamp:Date.now()})}).catch(()=>{});
-  }, [locale, t])
-  // #endregion
 
   const showPayments = forceShowPayments || subscription.requiresUpgrade || subscription.subscriptionStatus === 'trialing'
 

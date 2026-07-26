@@ -59,6 +59,7 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body
         className={`${display.variable} ${sans.variable} ${ethiopic.variable} antialiased`}
+        suppressHydrationWarning
       >
         <Script id="enat-theme-init" strategy="beforeInteractive">
           {themeInitScript}

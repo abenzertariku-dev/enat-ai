@@ -5,7 +5,7 @@ import {
   TrendingUp, TrendingDown, Wallet, Users, Clock, Award,
   Zap, AlertTriangle, CheckCircle, BarChart3, PieChart,
   Calendar, ArrowUpRight, ArrowDownRight, RefreshCw,
-  Lightbulb, Target, Shield, Sparkles, FileText, Download,
+  Lightbulb, Sparkles,
   Building2, MapPin, Users as UsersIcon, AlertCircle,
   User, Mail, Phone, Calendar as CalendarIcon,
   ShoppingBag, DollarSign, Percent, Activity, Eye,
@@ -661,26 +661,6 @@ export default function BusinessInsights({ transactions, stats, onRefresh, isLoa
             </ResponsiveContainer>
           </div>
         </div>
-      </div>
-
-      {/* ─── QUICK ACTIONS ────────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-        <button className="bg-white rounded-2xl border border-black/5 p-4 text-center hover:shadow-md transition group">
-          <FileText size={20} className="mx-auto text-emerald-600 group-hover:scale-110 transition" />
-          <p className="text-xs text-[#1F2A24]/60 mt-1">{t('insights.export')}</p>
-        </button>
-        <button className="bg-white rounded-2xl border border-black/5 p-4 text-center hover:shadow-md transition group">
-          <Target size={20} className="mx-auto text-emerald-600 group-hover:scale-110 transition" />
-          <p className="text-xs text-[#1F2A24]/60 mt-1">{t('insights.setGoals')}</p>
-        </button>
-        <button onClick={generateAiInsights} className="bg-white rounded-2xl border border-black/5 p-4 text-center hover:shadow-md transition group">
-          <Sparkles size={20} className="mx-auto text-emerald-600 group-hover:scale-110 transition" />
-          <p className="text-xs text-[#1F2A24]/60 mt-1">{t('insights.refresh')}</p>
-        </button>
-        <button className="bg-white rounded-2xl border border-black/5 p-4 text-center hover:shadow-md transition group">
-          <Download size={20} className="mx-auto text-emerald-600 group-hover:scale-110 transition" />
-          <p className="text-xs text-[#1F2A24]/60 mt-1">{t('insights.download')}</p>
-        </button>
       </div>
 
       {/* ─── KEY METRICS SUMMARY ──────────────────────────────────────── */}

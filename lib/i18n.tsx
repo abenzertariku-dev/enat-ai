@@ -36,9 +36,8 @@ const en: Dictionary = {
   'hero.support':
     'Voice, photo, and AI for Ethiopian merchants — sales, credit, and stock without the spreadsheet headache.',
   'hero.createAccount': 'Create your account',
-  'features.title': 'Bookkeeping that fits how you already work',
-  'features.subtitle':
-    'Built for kiosks, shops, and Merkato traders who still think in notebooks — not ERP menus.',
+  'features.title': 'Book keeping that fits how you already work',
+  'features.subtitle': 'Built for wholesaler.',
   'features.voice.title': 'Speak it in',
   'features.voice.body':
     'Say a sale in Amharic or English. ENAT AI writes the ledger entry for you.',
@@ -420,6 +419,12 @@ const en: Dictionary = {
   'upgrade.activated': 'Premium activated!',
   'upgrade.missingRef': 'Missing payment reference',
   'upgrade.notConfirmed': 'Payment not confirmed',
+  'upgrade.proofLabel': 'Payment screenshot',
+  'upgrade.proofHint': 'Upload a screenshot of your Chapa or Telebirr payment receipt to confirm.',
+  'upgrade.proofUpload': 'Upload screenshot proof',
+  'upgrade.proofRequired': 'Please upload a payment screenshot first',
+  'upgrade.proofBadType': 'Use JPG, PNG, WebP, or HEIC for proof',
+  'upgrade.proofTooLarge': 'Proof image is too large (max 8 MB)',
 
   // Toasts
   'toast.txAdded': 'Transaction added',
@@ -456,8 +461,7 @@ const am: Dictionary = {
     'ለኢትዮጵያ ነጋዴዎች በድምጽ፣ በፎቶ እና በ AI — ሽያጭ፣ ብድር እና ክምችት ያለ ስፕሬድሺት ችግር።',
   'hero.createAccount': 'መለያ ይፍጠሩ',
   'features.title': 'ከስራዎ ጋር የሚስማማ የሂሳብ አያያዝ',
-  'features.subtitle':
-    'ለኪዮስኮች፣ መደብሮች እና የመርካቶ ነጋዴዎች — በዴፍተር የሚሰሩ፣ ውስብስብ ሶፍትዌር አይደለም።',
+  'features.subtitle': 'ለጅምላ ነጋዴ የተሰራ።',
   'features.voice.title': 'በድምጽ ይመዝግቡ',
   'features.voice.body': 'ሽያጭን በአማርኛ ወይም በእንግሊዝኛ ይናገሩ። እናት AI ይመዘግባል።',
   'features.scan.title': 'ዴፍተርዎን ያንሱ',
@@ -820,6 +824,12 @@ const am: Dictionary = {
   'upgrade.activated': 'ፕሪሚየም ተግብሯል!',
   'upgrade.missingRef': 'የክፍያ ማጣቀሻ ጠፍቷል',
   'upgrade.notConfirmed': 'ክፍያ አልተረጋገጠም',
+  'upgrade.proofLabel': 'የክፍያ ስክሪንሾት',
+  'upgrade.proofHint': 'ለማረጋገጥ የቻፓ ወይም ቴሌብር የክፍያ ደረሰኝ ስክሪንሾት ይስቀሉ።',
+  'upgrade.proofUpload': 'የማረጋገጫ ስክሪንሾት ስቀል',
+  'upgrade.proofRequired': 'እባክዎ መጀመሪያ የክፍያ ስክሪንሾት ይስቀሉ',
+  'upgrade.proofBadType': 'ለማረጋገጫ JPG፣ PNG፣ WebP ወይም HEIC ይጠቀሙ',
+  'upgrade.proofTooLarge': 'የማረጋገጫ ምስሉ ትልቅ ነው (ከፍተኛው 8 ሜባ)',
 
   'toast.txAdded': 'ግብይት ተጨምሯል',
   'toast.txFailed': 'ግብይት ማከል አልተሳካም',
@@ -872,14 +882,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   const t = useCallback(
     (key: string, vars?: Record<string, string | number>) => {
-      const hasAm = Boolean(dictionaries.am[key])
-      const hasEn = Boolean(dictionaries.en[key])
       const raw = dictionaries[locale][key] ?? dictionaries.en[key] ?? key
-      // #region agent log
-      if (!hasEn || (locale === 'am' && !hasAm)) {
-        fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'post-fix',hypothesisId:'B',location:'i18n.tsx:t',message:'missing translation key',data:{key,locale,hasAm,hasEn,resolved:raw},timestamp:Date.now()})}).catch(()=>{});
-      }
-      // #endregion
       return format(raw, vars)
     },
     [locale]

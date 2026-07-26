@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef, useState, useCallback, useEffect } from 'react'
+import { useRef, useState, useCallback } from 'react'
 import { Camera, Upload, X, ImageIcon, AlertCircle } from 'lucide-react'
 import { useI18n } from '@/lib/i18n'
 
@@ -17,17 +17,11 @@ function formatSize(bytes: number) {
 }
 
 export default function ScanContent({ onPhotoUpload, isLoading }: ScanContentProps) {
-  const { t, locale } = useI18n()
+  const { t } = useI18n()
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [preview, setPreview] = useState<{ url: string; file: File } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isDragging, setIsDragging] = useState(false)
-
-  // #region agent log
-  useEffect(() => {
-    fetch('http://127.0.0.1:7412/ingest/e41294ac-d718-4cb0-a12d-1333a9614c42',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'31395e'},body:JSON.stringify({sessionId:'31395e',runId:'post-fix',hypothesisId:'A',location:'ScanContent.tsx:mount',message:'ScanContent render — hardcoded EN?',data:{usesI18n:true,locale,docLang:typeof document!=='undefined'?document.documentElement.lang:'?',hardcodedTitle:t('scan.title')},timestamp:Date.now()})}).catch(()=>{});
-  }, [locale, t])
-  // #endregion
 
   const validate = (file: File): string | null => {
     if (file.type && !ACCEPTED_TYPES.includes(file.type)) {
